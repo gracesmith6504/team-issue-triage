@@ -1,0 +1,11 @@
+{
+  "number": 2398,
+  "title": "Route TLS termination breaks with custom CA certificates",
+  "body": "After upgrading to v0.0.85, OpenShift Routes configured with custom CA certificates fail TLS termination.\n\nThis worked in v0.0.84. The gateway now rejects the certificate chain with:\n```\ncertificate verify failed: unable to get local issuer certificate\n```\n\nWorkaround: Use passthrough TLS instead of edge termination.",
+  "labels": ["kind/bug", "area/security", "area/deployment"],
+  "comments": [
+    {"user": "team-member", "body": "This is blocking our staging deployment. We can use passthrough for now but need a proper fix."}
+  ],
+  "url": "https://github.com/NVIDIA/OpenShell/issues/2398",
+  "created_at": "2026-07-23T09:00:00Z"
+}

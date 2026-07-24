@@ -1,0 +1,10 @@
+.git
+tests/
+docs/
+__pycache__/
+*.pyc
+.ruff_cache/
+.superpowers/
+*.md
+!requirements*.txt
+k8s/

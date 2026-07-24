@@ -96,6 +96,40 @@ def test_fetch_new_issues_skips_pull_requests(mock_get, github_source):
 
 
 @patch("app.sources.github.requests.get")
+def test_fetch_new_issues_skips_old_updated_issues(mock_get, github_source):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = [
+        {
+            "number": 500,
+            "title": "Old issue with new comment",
+            "body": "Created a week ago.",
+            "labels": [],
+            "html_url": "https://github.com/NVIDIA/OpenShell/issues/500",
+            "created_at": "2026-07-16T10:00:00Z",
+        },
+        {
+            "number": 501,
+            "title": "Brand new issue",
+            "body": "Just filed.",
+            "labels": [],
+            "html_url": "https://github.com/NVIDIA/OpenShell/issues/501",
+            "created_at": "2026-07-23T15:00:00Z",
+        },
+    ]
+    mock_get.return_value = mock_response
+
+    issues = github_source.fetch_new_issues(
+        repos=["NVIDIA/OpenShell"],
+        since="2026-07-23T12:00:00Z",
+        seen_ids=set(),
+    )
+
+    assert len(issues) == 1
+    assert issues[0].number == 501
+
+
+@patch("app.sources.github.requests.get")
 def test_fetch_new_issues_api_error(mock_get, github_source):
     mock_response = MagicMock()
     mock_response.status_code = 403

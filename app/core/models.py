@@ -53,3 +53,35 @@ class DigestEntry:
     reason: str
     url: str
     assessed_at: str
+
+    def to_dict(self) -> dict:
+        return {
+            "issue_number": self.issue_number,
+            "title": self.title,
+            "repo": self.repo,
+            "relevance": self.relevance,
+            "urgency": self.urgency,
+            "action_clarity": self.action_clarity,
+            "verdict": self.verdict,
+            "reason": self.reason,
+            "url": self.url,
+            "assessed_at": self.assessed_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "DigestEntry":
+        return cls(
+            issue_number=data["issue_number"],
+            title=data["title"],
+            repo=data["repo"],
+            relevance=data["relevance"],
+            urgency=data["urgency"],
+            action_clarity=data["action_clarity"],
+            verdict=data["verdict"],
+            reason=data["reason"],
+            url=data["url"],
+            assessed_at=data["assessed_at"],
+        )
+
+
+DIGEST_MAX_ITEMS = 10

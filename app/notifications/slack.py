@@ -2,11 +2,9 @@ import logging
 
 import requests
 
-from app.core.models import Assessment, DigestEntry
+from app.core.models import Assessment, DigestEntry, DIGEST_MAX_ITEMS
 
 logger = logging.getLogger(__name__)
-
-DIGEST_MAX_ITEMS = 10
 
 
 class SlackNotifier:

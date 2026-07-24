@@ -1,4 +1,10 @@
-from app.core.models import Assessment, DigestEntry, IssueData, Verdict
+from app.core.models import (
+    Assessment,
+    DigestEntry,
+    IssueData,
+    Verdict,
+    DIGEST_MAX_ITEMS,
+)
 
 
 def test_verdict_values():
@@ -69,3 +75,60 @@ def test_digest_entry_creation():
     )
     assert entry.verdict == "TRACK"
     assert entry.relevance == 4
+
+
+def test_digest_entry_to_dict():
+    entry = DigestEntry(
+        issue_number=2399,
+        title="Helm values missing tolerations",
+        repo="NVIDIA/OpenShell",
+        relevance=4,
+        urgency=2,
+        action_clarity=5,
+        verdict="TRACK",
+        reason="OpenShift deployment gap",
+        url="https://github.com/NVIDIA/OpenShell/issues/2399",
+        assessed_at="2026-07-23T13:05:00Z",
+    )
+    d = entry.to_dict()
+    assert d["issue_number"] == 2399
+    assert d["verdict"] == "TRACK"
+    assert len(d) == 10
+
+
+def test_digest_entry_from_dict():
+    data = {
+        "issue_number": 2399,
+        "title": "Helm values missing tolerations",
+        "repo": "NVIDIA/OpenShell",
+        "relevance": 4,
+        "urgency": 2,
+        "action_clarity": 5,
+        "verdict": "TRACK",
+        "reason": "OpenShift deployment gap",
+        "url": "https://github.com/NVIDIA/OpenShell/issues/2399",
+        "assessed_at": "2026-07-23T13:05:00Z",
+    }
+    entry = DigestEntry.from_dict(data)
+    assert entry.issue_number == 2399
+    assert entry.verdict == "TRACK"
+
+
+def test_digest_entry_roundtrip():
+    entry = DigestEntry(
+        issue_number=100,
+        title="Test",
+        repo="org/repo",
+        relevance=3,
+        urgency=3,
+        action_clarity=3,
+        verdict="WATCH",
+        reason="test",
+        url="https://example.com/100",
+        assessed_at="2026-07-23T12:00:00Z",
+    )
+    assert DigestEntry.from_dict(entry.to_dict()) == entry
+
+
+def test_digest_max_items_constant():
+    assert DIGEST_MAX_ITEMS == 10

@@ -7,6 +7,7 @@ from app.core.llm import (
     PROVIDERS,
     AnthropicClient,
     VertexClient,
+    _assess_with_retry,
     _extract_json,
     create_llm_client,
     resolve_model,
@@ -204,5 +205,40 @@ def test_anthropic_retries_on_transient_error(mock_anthropic_cls):
     with patch("app.core.llm.time.sleep"):
         result = client.assess("system", "user", "claude-sonnet-4-6")
 
+    assert result == {"ok": True}
+    assert mock_client.messages.create.call_count == 2
+
+
+def test_assess_with_retry_success():
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = [MagicMock()]
+    mock_response.content[0].text = '{"relevance": 5}'
+    mock_client.messages.create.return_value = mock_response
+
+    result = _assess_with_retry(mock_client, "system", "user", "claude-sonnet-4-6")
+    assert result == {"relevance": 5}
+
+
+def test_assess_with_retry_json_error_returns_none():
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = [MagicMock()]
+    mock_response.content[0].text = "not json at all"
+    mock_client.messages.create.return_value = mock_response
+
+    result = _assess_with_retry(mock_client, "system", "user", "claude-sonnet-4-6")
+    assert result is None
+
+
+@patch("app.core.llm.time.sleep")
+def test_assess_with_retry_retries_on_transient_error(mock_sleep):
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = [MagicMock()]
+    mock_response.content[0].text = '{"ok": true}'
+    mock_client.messages.create.side_effect = [RuntimeError("transient"), mock_response]
+
+    result = _assess_with_retry(mock_client, "system", "user", "claude-sonnet-4-6")
     assert result == {"ok": True}
     assert mock_client.messages.create.call_count == 2

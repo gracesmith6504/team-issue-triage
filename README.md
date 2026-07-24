@@ -139,7 +139,7 @@ kubectl apply -k k8s/
 
 Manifests in `k8s/`:
 - `cronjob-triage.yaml` — runs every hour, assesses new issues
-- `cronjob-digest.yaml` — runs daily at 09:00 UTC, flushes accumulated digest
+- `cronjob-digest.yaml` — runs daily at 08:30 UTC, flushes accumulated digest
 - `pvc.yaml` — persistent volume for state file
 - `configmap.yaml` — non-secret configuration
 - `kustomization.yaml` — ties it all together
@@ -204,4 +204,3 @@ make build     # Build Docker image
 - **Single-repo state collision** — `seen_ids` are keyed by bare issue number, so multi-repo mode will collide. Fix before enabling multiple repos.
 - **No GitHub pagination** — fetches the first page of issues only. Fix before pointing at repos with high issue volume.
 - **No Slack thread replies** — ESCALATE verdicts post a single message, not a thread with details.
-- **No resource limits** — CronJob manifests don't set CPU/memory requests. Add before deploying to shared clusters.

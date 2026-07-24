@@ -1,0 +1,11 @@
+{
+  "number": 2395,
+  "title": "TUI crashes when terminal window is resized below 80 columns",
+  "body": "The TUI panics with an index out of bounds error when the terminal window is resized to less than 80 columns wide.\n\nStack trace:\n```\nthread 'main' panicked at 'index out of bounds: the len is 3 but the index is 5'\n```\n\nThis happens in the openshell-tui crate's render loop.",
+  "labels": ["kind/bug", "area/tui"],
+  "comments": [
+    {"user": "tui-maintainer", "body": "I'll look into this. Probably need to add a minimum size check."}
+  ],
+  "url": "https://github.com/NVIDIA/OpenShell/issues/2395",
+  "created_at": "2026-07-22T10:00:00Z"
+}

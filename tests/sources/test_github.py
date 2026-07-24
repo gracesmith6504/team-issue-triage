@@ -168,3 +168,31 @@ def test_fetch_new_issues_multiple_repos(mock_get, github_source):
     )
 
     assert mock_get.call_count == 2
+
+
+@patch("app.sources.github.requests.get")
+def test_fetch_filters_correctly_when_since_has_microseconds(mock_get, github_source):
+    """Regression: string comparison fails when since has microsecond precision."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = [
+        {
+            "number": 600,
+            "title": "Issue created before since",
+            "body": "Should be filtered out.",
+            "labels": [],
+            "html_url": "https://github.com/NVIDIA/OpenShell/issues/600",
+            "created_at": "2026-07-23T12:00:00Z",
+        },
+    ]
+    mock_get.return_value = mock_response
+
+    # since has microseconds (realistic output of datetime.isoformat())
+    # 12:00:00.500000 is AFTER 12:00:00, so issue 600 was created BEFORE since
+    issues = github_source.fetch_new_issues(
+        repos=["NVIDIA/OpenShell"],
+        since="2026-07-23T12:00:00.500000+00:00",
+        seen_ids=set(),
+    )
+
+    assert len(issues) == 0  # issue should be filtered — it was created before since

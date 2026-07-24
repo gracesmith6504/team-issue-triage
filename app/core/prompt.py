@@ -69,6 +69,11 @@ def build_system_prompt(profile: TeamProfile | None = None) -> str:
     if profile.urgency_rules:
         sections.append(f"\n\n--- URGENCY RULES ---\n{profile.urgency_rules.strip()}")
 
+    if profile.work_status_guidance:
+        sections.append(
+            f"\n\n--- WORK STATUS SIGNALS ---\n{profile.work_status_guidance.strip()}"
+        )
+
     if profile.calibration_examples:
         lines = []
         for ex in profile.calibration_examples:

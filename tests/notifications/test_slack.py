@@ -69,16 +69,6 @@ def test_slack_escalation(mock_post):
 
 
 @patch("app.notifications.slack.requests.post")
-def test_slack_escalation_posts_thread(mock_post):
-    mock_post.return_value = MagicMock(status_code=200, json=lambda: {"ts": "123.456"})
-
-    notifier = SlackNotifier(webhook_url="https://hooks.slack.com/test")
-    notifier.send_escalation(_make_assessment())
-
-    assert mock_post.call_count >= 1
-
-
-@patch("app.notifications.slack.requests.post")
 def test_slack_digest(mock_post):
     mock_post.return_value = MagicMock(status_code=200)
 

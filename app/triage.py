@@ -31,7 +31,9 @@ def _build_llm_client(config: TriageConfig):
 
 
 def run_triage(config: TriageConfig) -> None:
-    tracker = StateTracker(config.state_path)
+    tracker = StateTracker(
+        config.state_path, lookback_hours=config.default_lookback_hours
+    )
     state = tracker.load()
     notifier = _build_notifier(config)
     source = GitHubSource(token=config.github_token)
@@ -100,7 +102,9 @@ def run_triage(config: TriageConfig) -> None:
 
 
 def run_digest(config: TriageConfig) -> None:
-    tracker = StateTracker(config.state_path)
+    tracker = StateTracker(
+        config.state_path, lookback_hours=config.default_lookback_hours
+    )
     state = tracker.load()
     notifier = _build_notifier(config)
 

@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -7,13 +8,14 @@ logger = logging.getLogger(__name__)
 
 
 class StateTracker:
-    def __init__(self, state_path: Path):
+    def __init__(self, state_path: Path, lookback_hours: int = 24):
         self._path = state_path
+        self._lookback_hours = lookback_hours
 
     def load(self) -> dict:
         if not self._path.exists():
             logger.info("No state file found, using defaults")
-            return self.default_state()
+            return self.default_state(lookback_hours=self._lookback_hours)
 
         try:
             with open(self._path) as f:
@@ -30,8 +32,10 @@ class StateTracker:
             **state,
             "seen_issues": sorted(state.get("seen_issues", set())),
         }
-        with open(self._path, "w") as f:
+        tmp = self._path.with_suffix(".tmp")
+        with open(tmp, "w") as f:
             json.dump(serializable, f, indent=2)
+        os.replace(tmp, self._path)
 
     @staticmethod
     def default_state(lookback_hours: int = 24) -> dict:

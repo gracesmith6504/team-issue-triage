@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 import requests
 
@@ -54,7 +55,9 @@ class GitHubSource:
                 continue
             if item["number"] in seen_ids:
                 continue
-            if item["created_at"] < since:
+            created = datetime.fromisoformat(item["created_at"].replace("Z", "+00:00"))
+            since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
+            if created < since_dt:
                 continue
 
             comment_count = item.get("comments", 0)

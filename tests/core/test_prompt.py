@@ -75,3 +75,11 @@ def test_user_prompt_no_labels():
     issue.labels = []
     prompt = build_user_prompt(issue)
     assert "none" in prompt.lower()
+
+
+def test_system_prompt_includes_work_status_guidance():
+    profile = _make_profile()
+    profile.work_status_guidance = "state:in-progress means someone is working on it"
+    prompt = build_system_prompt(profile)
+    assert "WORK STATUS SIGNALS" in prompt
+    assert "state:in-progress" in prompt

@@ -17,6 +17,7 @@ class TeamProfile:
     team_context: str = ""
     pinned_version: str = ""
     urgency_rules: str = ""
+    work_status_guidance: str = ""
     calibration_examples: list[dict] = field(default_factory=list)
     verdict_thresholds: dict[str, int] | None = None
 
@@ -45,6 +46,7 @@ def load_profile(name: str, profiles_dir: Path | None = None) -> TeamProfile:
         team_context=data.get("team_context", ""),
         pinned_version=data.get("pinned_version", ""),
         urgency_rules=data.get("urgency_rules", ""),
+        work_status_guidance=data.get("work_status_guidance", ""),
         calibration_examples=data.get("calibration_examples", []),
         verdict_thresholds=data.get("verdict_thresholds"),
     )

@@ -27,6 +27,29 @@ team_context: |
 
 pinned_version: "v0.0.85"
 
+work_status_guidance: |
+  OpenShell uses state labels and comments to signal work status, but
+  neither is perfectly reliable — labels can lag hours behind reality.
+
+  STATE LABELS (treat as hints, not facts):
+  - state:in-progress — someone is actively working on it
+  - state:review-ready — a fix is up for review
+  - state:pr-opened — a PR exists for this issue
+  - state:triage-needed — not yet triaged by maintainers
+  - state:stale — no recent activity
+
+  COMMENT SIGNALS (often more current than labels):
+  - "I'll work on this", "taking this", "looking into this" — claimed
+  - "WIP", "draft PR", "working on a fix" — actively in progress
+  - Links to PRs or branches in comments — work is underway
+
+  HOW TO USE THIS:
+  If any signal suggests someone is already handling the issue, adjust
+  your recommendation to reflect that (e.g. "monitor progress" instead
+  of "team should investigate"). The verdict scores (relevance, urgency,
+  action clarity) stay the same — the issue is still relevant and urgent
+  regardless of who is working on it. Only the recommendation changes.
+
 urgency_rules: |
   RELEASE BLOCKERS (Urgency 5):
   - Go SDK protobuf sync failures (auto-created by GitHub Actions,

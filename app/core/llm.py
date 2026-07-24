@@ -23,6 +23,38 @@ def _extract_json(text: str) -> dict:
     return json.loads(text)
 
 
+def _assess_with_retry(
+    client, system_prompt: str, user_prompt: str, model: str
+) -> dict | None:
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.messages.create(
+                model=model,
+                max_tokens=2048,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
+                temperature=0,
+            )
+            content = response.content[0].text.strip()
+            return _extract_json(content)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse LLM response: {e}")
+            return None
+        except Exception as e:
+            if attempt < max_retries:
+                delay = 5 * (3**attempt)
+                logger.warning(
+                    f"LLM failed (attempt {attempt + 1}/{max_retries + 1}), "
+                    f"retrying in {delay}s: {e}"
+                )
+                time.sleep(delay)
+            else:
+                logger.error(f"LLM failed after {max_retries + 1} attempts: {e}")
+                return None
+    return None
+
+
 PROVIDERS = ("anthropic", "vertex")
 
 DEFAULT_MODELS = {
@@ -44,33 +76,7 @@ class AnthropicClient:
         self._client = anthropic.Anthropic(api_key=api_key)
 
     def assess(self, system_prompt: str, user_prompt: str, model: str) -> dict | None:
-        max_retries = 2
-        for attempt in range(max_retries + 1):
-            try:
-                response = self._client.messages.create(
-                    model=model,
-                    max_tokens=2048,
-                    system=system_prompt,
-                    messages=[{"role": "user", "content": user_prompt}],
-                    temperature=0,
-                )
-                content = response.content[0].text.strip()
-                return _extract_json(content)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse LLM response: {e}")
-                return None
-            except Exception as e:
-                if attempt < max_retries:
-                    delay = 5 * (3**attempt)
-                    logger.warning(
-                        f"LLM failed (attempt {attempt + 1}/{max_retries + 1}), "
-                        f"retrying in {delay}s: {e}"
-                    )
-                    time.sleep(delay)
-                else:
-                    logger.error(f"LLM failed after {max_retries + 1} attempts: {e}")
-                    return None
-        return None
+        return _assess_with_retry(self._client, system_prompt, user_prompt, model)
 
 
 class VertexClient:
@@ -78,33 +84,7 @@ class VertexClient:
         self._client = AnthropicVertex(project_id=project_id, region=region)
 
     def assess(self, system_prompt: str, user_prompt: str, model: str) -> dict | None:
-        max_retries = 2
-        for attempt in range(max_retries + 1):
-            try:
-                response = self._client.messages.create(
-                    model=model,
-                    max_tokens=2048,
-                    system=system_prompt,
-                    messages=[{"role": "user", "content": user_prompt}],
-                    temperature=0,
-                )
-                content = response.content[0].text.strip()
-                return _extract_json(content)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse LLM response: {e}")
-                return None
-            except Exception as e:
-                if attempt < max_retries:
-                    delay = 5 * (3**attempt)
-                    logger.warning(
-                        f"LLM failed (attempt {attempt + 1}/{max_retries + 1}), "
-                        f"retrying in {delay}s: {e}"
-                    )
-                    time.sleep(delay)
-                else:
-                    logger.error(f"LLM failed after {max_retries + 1} attempts: {e}")
-                    return None
-        return None
+        return _assess_with_retry(self._client, system_prompt, user_prompt, model)
 
 
 def resolve_model(provider: str, explicit_model: str | None) -> str:

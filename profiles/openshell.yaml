@@ -1,0 +1,91 @@
+repos:
+  - "NVIDIA/OpenShell"
+
+team_name: "Agent Ops"
+team_context: |
+  The Agent Ops team at Red Hat is responsible for integrating OpenShell
+  into Red Hat OpenShift AI (RHOAI) as a Dev Preview feature for the 3.5
+  release. The team's focus areas are:
+
+  1. Running OpenShell on OpenShift — Helm deployment, SCCs, RBAC,
+     Routes, NetworkPolicies, pod security
+  2. Sandbox operator design — CRDs for declarative sandbox management
+  3. Inference routing — proxying LLM requests through OpenShell's
+     gateway to model endpoints (vLLM, Vertex AI)
+  4. Agent identity — SPIFFE/OIDC token exchange, AuthBridge integration
+  5. Go SDK synchronization — protobuf codegen that must stay in sync
+     with the server. Sync failures block releases.
+  6. Midstream/downstream pipeline — syncing upstream changes into
+     opendatahub-io/agents-operator and Red Hat builds
+
+  The team does NOT own:
+  - The TUI (openshell-tui) — terminal dashboard, cosmetic
+  - Docker driver (openshell-driver-docker) — local dev only
+  - MicroVM driver — not used on OpenShift
+  - macOS-specific issues — team deploys on Linux/OpenShift
+  - General documentation unless it's about OpenShift deployment
+
+pinned_version: "v0.0.85"
+
+urgency_rules: |
+  RELEASE BLOCKERS (Urgency 5):
+  - Go SDK protobuf sync failures (auto-created by GitHub Actions,
+    title pattern: "protobuf sync failed" or "codegen sync")
+  - Any issue with labels: priority/critical, kind/blocker
+  - CI failures that affect the release pipeline
+
+  REGRESSIONS (Urgency 4):
+  - Bugs in v0.0.85 that worked in previous versions
+  - Security vulnerabilities (CVE mentions, label: area/security)
+
+  BUGS (Urgency 3):
+  - Reproducible bugs in team-relevant areas with workarounds
+
+  ENHANCEMENTS (Urgency 2):
+  - Feature requests that would benefit OpenShift deployment
+  - Improvements to areas the team actively works on
+
+  DISCUSSIONS (Urgency 1):
+  - RFCs, design proposals, architecture discussions
+  - Feature requests outside team scope
+
+calibration_examples:
+  - summary: "Go SDK protobuf sync failed for v0.4.2"
+    scores: "Relevance=5 Urgency=5 Action=4"
+    verdict: "ESCALATE"
+    reason: "SDK sync errors are release blockers. Clear action: re-run sync after fixing proto definitions."
+
+  - summary: "Helm chart fails when SCC restricts runAsUser"
+    scores: "Relevance=5 Urgency=4 Action=4"
+    verdict: "ESCALATE"
+    reason: "Directly affects OpenShift deployment — the team's primary focus area. Fix approach is apparent."
+
+  - summary: "TUI crashes when terminal window is resized"
+    scores: "Relevance=1 Urgency=3 Action=3"
+    verdict: "SKIP"
+    reason: "TUI is not team-owned. Bug is real but irrelevant to Agent Ops work."
+
+  - summary: "Add GPU passthrough support for sandbox pods"
+    scores: "Relevance=4 Urgency=2 Action=2"
+    verdict: "TRACK"
+    reason: "Relevant to OpenShift sandbox work but not urgent. Needs design discussion."
+
+  - summary: "Landlock policy not enforced inside Docker containers"
+    scores: "Relevance=1 Urgency=3 Action=3"
+    verdict: "SKIP"
+    reason: "Docker driver issue. Team deploys on OpenShift, not Docker."
+
+  - summary: "Route TLS termination breaks with custom CA certificates"
+    scores: "Relevance=5 Urgency=4 Action=3"
+    verdict: "ESCALATE"
+    reason: "TLS/mTLS on OpenShift is a team-owned area. Regression in deployment workflow."
+
+  - summary: "RFC: SDK conformance testing framework"
+    scores: "Relevance=3 Urgency=1 Action=1"
+    verdict: "WATCH"
+    reason: "Tangentially relevant but it's an open-ended design discussion. No action needed from the team."
+
+  - summary: "openshell-core: refactor config parsing into separate module"
+    scores: "Relevance=3 Urgency=1 Action=2"
+    verdict: "WATCH"
+    reason: "Core crate refactoring affects everyone but is not team-initiated. Watch for breaking changes."

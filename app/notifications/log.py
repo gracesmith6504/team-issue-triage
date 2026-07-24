@@ -1,11 +1,9 @@
 import logging
 
-from app.core.models import Assessment, DigestEntry
+from app.core.models import Assessment, DigestEntry, DIGEST_MAX_ITEMS
 from app.core.scoring import format_scores
 
 logger = logging.getLogger(__name__)
-
-DIGEST_MAX_ITEMS = 10
 
 
 class LogNotifier:

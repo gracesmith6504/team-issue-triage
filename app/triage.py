@@ -76,20 +76,7 @@ def run_triage(config: TriageConfig) -> None:
                 url=assessment.issue_url,
                 assessed_at=assessment.assessed_at,
             )
-            state["digest_buffer"].append(
-                {
-                    "issue_number": entry.issue_number,
-                    "title": entry.title,
-                    "repo": entry.repo,
-                    "relevance": entry.relevance,
-                    "urgency": entry.urgency,
-                    "action_clarity": entry.action_clarity,
-                    "verdict": entry.verdict,
-                    "reason": entry.reason,
-                    "url": entry.url,
-                    "assessed_at": entry.assessed_at,
-                }
-            )
+            state["digest_buffer"].append(entry.to_dict())
 
         state["seen_issues"].add(issue.number)
         now_str = datetime.now(timezone.utc).isoformat()
@@ -110,21 +97,7 @@ def run_digest(config: TriageConfig) -> None:
 
     buffer = state.get("digest_buffer", [])
     if buffer:
-        entries = [
-            DigestEntry(
-                issue_number=item["issue_number"],
-                title=item["title"],
-                repo=item["repo"],
-                relevance=item["relevance"],
-                urgency=item["urgency"],
-                action_clarity=item["action_clarity"],
-                verdict=item["verdict"],
-                reason=item["reason"],
-                url=item["url"],
-                assessed_at=item["assessed_at"],
-            )
-            for item in buffer
-        ]
+        entries = [DigestEntry.from_dict(item) for item in buffer]
         notifier.send_digest(entries)
         logger.info(f"Sent digest with {len(entries)} items")
     else:

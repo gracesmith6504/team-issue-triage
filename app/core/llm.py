@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import time
 from typing import Protocol
 
@@ -7,6 +8,20 @@ import anthropic
 from anthropic import AnthropicVertex
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_json(text: str) -> dict:
+    text = text.strip()
+    fenced = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
+    if fenced:
+        text = fenced.group(1).strip()
+    else:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            text = text[start : end + 1]
+    return json.loads(text)
+
 
 PROVIDERS = ("anthropic", "vertex")
 
@@ -40,7 +55,7 @@ class AnthropicClient:
                     temperature=0,
                 )
                 content = response.content[0].text.strip()
-                return json.loads(content)
+                return _extract_json(content)
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse LLM response: {e}")
                 return None
@@ -74,7 +89,7 @@ class VertexClient:
                     temperature=0,
                 )
                 content = response.content[0].text.strip()
-                return json.loads(content)
+                return _extract_json(content)
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse LLM response: {e}")
                 return None

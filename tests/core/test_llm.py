@@ -7,9 +7,34 @@ from app.core.llm import (
     PROVIDERS,
     AnthropicClient,
     VertexClient,
+    _extract_json,
     create_llm_client,
     resolve_model,
 )
+
+
+def test_extract_json_raw():
+    assert _extract_json('{"relevance": 5}') == {"relevance": 5}
+
+
+def test_extract_json_fenced():
+    text = '```json\n{"relevance": 5}\n```'
+    assert _extract_json(text) == {"relevance": 5}
+
+
+def test_extract_json_fenced_no_language_tag():
+    text = '```\n{"relevance": 5}\n```'
+    assert _extract_json(text) == {"relevance": 5}
+
+
+def test_extract_json_extra_text():
+    text = 'Here is the assessment:\n{"relevance": 5}\nDone.'
+    assert _extract_json(text) == {"relevance": 5}
+
+
+def test_extract_json_invalid():
+    with pytest.raises(Exception):
+        _extract_json("no json here at all")
 
 
 def test_providers_tuple():

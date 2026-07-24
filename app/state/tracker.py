@@ -1,0 +1,71 @@
+import json
+import logging
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+
+class StateTracker:
+    def __init__(self, state_path: Path):
+        self._path = state_path
+
+    def load(self) -> dict:
+        if not self._path.exists():
+            logger.info("No state file found, using defaults")
+            return self.default_state()
+
+        try:
+            with open(self._path) as f:
+                raw = json.load(f)
+            raw["seen_issues"] = set(raw.get("seen_issues", []))
+            return raw
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.warning(f"Corrupted state file, using defaults: {e}")
+            return self.default_state()
+
+    def save(self, state: dict) -> None:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        serializable = {
+            **state,
+            "seen_issues": sorted(state.get("seen_issues", set())),
+        }
+        with open(self._path, "w") as f:
+            json.dump(serializable, f, indent=2)
+
+    @staticmethod
+    def default_state(lookback_hours: int = 24) -> dict:
+        last_checked = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
+        return {
+            "last_checked": last_checked.isoformat(),
+            "seen_issues": set(),
+            "digest_buffer": [],
+            "seen_timestamps": {},
+        }
+
+    @staticmethod
+    def prune_seen(state: dict, max_age_days: int = 30) -> dict:
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(days=max_age_days)
+        timestamps = state.get("seen_timestamps", {})
+
+        kept = set()
+        kept_timestamps = {}
+        for issue_id in state["seen_issues"]:
+            ts_str = timestamps.get(str(issue_id))
+            if ts_str:
+                ts = datetime.fromisoformat(ts_str)
+                if ts > cutoff:
+                    kept.add(issue_id)
+                    kept_timestamps[str(issue_id)] = ts_str
+            else:
+                kept.add(issue_id)
+                kept_timestamps[str(issue_id)] = now.isoformat()
+
+        pruned_count = len(state["seen_issues"]) - len(kept)
+        if pruned_count > 0:
+            logger.info(f"Pruned {pruned_count} issues older than {max_age_days} days")
+
+        state["seen_issues"] = kept
+        state["seen_timestamps"] = kept_timestamps
+        return state

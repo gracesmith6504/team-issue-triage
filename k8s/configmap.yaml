@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: triage-config
+data:
+  WATCH_REPOS: "NVIDIA/OpenShell"
+  LLM_PROVIDER: "vertex"
+  VERTEX_REGION: "us-east5"
+  STATE_PATH: "/data/state.json"
+  PROFILES_DIR: "/app/profiles"
+  DEFAULT_LOOKBACK_HOURS: "24"

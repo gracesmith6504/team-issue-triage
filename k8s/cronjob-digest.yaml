@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: triage-digest
+spec:
+  schedule: "0 8 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: digest
+              image: quay.io/gracesmith6504/team-issue-triage:latest
+              args: ["--mode", "digest"]
+              envFrom:
+                - configMapRef:
+                    name: triage-config
+                - secretRef:
+                    name: triage-secrets
+              volumeMounts:
+                - name: state
+                  mountPath: /data
+          volumes:
+            - name: state
+              persistentVolumeClaim:
+                claimName: triage-state

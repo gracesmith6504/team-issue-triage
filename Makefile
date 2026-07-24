@@ -1,4 +1,4 @@
-.PHONY: test lint build
+.PHONY: test lint build format
 
 test:
 	python3 -m pytest tests/ -v

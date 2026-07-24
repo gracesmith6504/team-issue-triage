@@ -43,10 +43,29 @@ def test_load_config_from_env(monkeypatch):
 
 def test_load_config_defaults(monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
+    monkeypatch.setenv("VERTEX_PROJECT_ID", "default-project")  # required for vertex
     config = load_config()
     assert config.llm_provider == "vertex"
     assert config.vertex_region == "us-east5"
     assert config.default_lookback_hours == 24
+
+
+def test_load_config_vertex_missing_project_id_raises(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
+    monkeypatch.setenv("LLM_PROVIDER", "vertex")
+    monkeypatch.delenv("VERTEX_PROJECT_ID", raising=False)
+
+    with pytest.raises(ValueError, match="VERTEX_PROJECT_ID"):
+        load_config()
+
+
+def test_load_config_anthropic_missing_api_key_raises(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
+        load_config()
 
 
 @patch("app.triage.GitHubSource")

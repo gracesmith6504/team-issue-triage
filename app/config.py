@@ -22,13 +22,28 @@ def load_config() -> TriageConfig:
     repos_str = os.environ.get("WATCH_REPOS", "NVIDIA/OpenShell")
     watch_repos = [r.strip() for r in repos_str.split(",") if r.strip()]
 
+    llm_provider = os.environ.get("LLM_PROVIDER", "vertex")
+    vertex_project_id = os.environ.get("VERTEX_PROJECT_ID")
+    anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
+
+    if llm_provider == "vertex" and not vertex_project_id:
+        raise ValueError(
+            "VERTEX_PROJECT_ID is required when LLM_PROVIDER=vertex. "
+            "Set it to your GCP project ID."
+        )
+    if llm_provider == "anthropic" and not anthropic_api_key:
+        raise ValueError(
+            "ANTHROPIC_API_KEY is required when LLM_PROVIDER=anthropic. "
+            "Set it to your Anthropic API key."
+        )
+
     return TriageConfig(
         watch_repos=watch_repos,
-        llm_provider=os.environ.get("LLM_PROVIDER", "vertex"),
+        llm_provider=llm_provider,
         llm_model=os.environ.get("LLM_MODEL"),
-        vertex_project_id=os.environ.get("VERTEX_PROJECT_ID"),
+        vertex_project_id=vertex_project_id,
         vertex_region=os.environ.get("VERTEX_REGION", "us-east5"),
-        anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"),
+        anthropic_api_key=anthropic_api_key,
         github_token=os.environ["GITHUB_TOKEN"],
         slack_webhook_url=os.environ.get("SLACK_WEBHOOK_URL"),
         state_path=Path(os.environ.get("STATE_PATH", "/data/state.json")),

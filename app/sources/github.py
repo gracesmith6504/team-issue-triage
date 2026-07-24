@@ -54,6 +54,8 @@ class GitHubSource:
                 continue
             if item["number"] in seen_ids:
                 continue
+            if item["created_at"] < since:
+                continue
 
             comment_count = item.get("comments", 0)
             comments = (

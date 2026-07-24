@@ -42,7 +42,7 @@ GitHub Issues → Fetch & Truncate → LLM Assessment → Score & Verdict → No
 | LLM Providers | Vertex AI (default), Anthropic API |
 | Tests | pytest (98 tests) |
 | Lint | ruff |
-| Container | Docker (multi-stage, non-root) |
+| Container | Docker (non-root) |
 | Deploy | Kubernetes CronJob + Kustomize |
 
 ## Prerequisites
@@ -175,7 +175,7 @@ team-issue-triage/
 │   └── openshell.yaml       # Agent Ops team profile
 ├── k8s/                     # Kubernetes manifests
 ├── tests/                   # 98 tests (unit + integration)
-├── Dockerfile               # Multi-stage build, non-root (UID 1001)
+├── Dockerfile               # Non-root container (UID 1001)
 ├── Makefile                 # test, lint, format, build
 ├── requirements.txt
 └── requirements-dev.txt

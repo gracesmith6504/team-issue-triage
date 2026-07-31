@@ -41,7 +41,7 @@ def test_load_missing_file(tracker):
 def test_save_and_load(tracker, state_path):
     state = {
         "last_checked": "2026-07-23T14:00:00+00:00",
-        "seen_issues": {2401, 2399},
+        "seen_issues": {"NVIDIA/OpenShell#2401", "NVIDIA/OpenShell#2399"},
         "digest_buffer": [
             {
                 "issue_number": 2399,
@@ -61,7 +61,7 @@ def test_save_and_load(tracker, state_path):
 
     loaded = tracker.load()
     assert loaded["last_checked"] == "2026-07-23T14:00:00+00:00"
-    assert loaded["seen_issues"] == {2401, 2399}
+    assert loaded["seen_issues"] == {"NVIDIA/OpenShell#2401", "NVIDIA/OpenShell#2399"}
     assert len(loaded["digest_buffer"]) == 1
     assert loaded["digest_buffer"][0]["issue_number"] == 2399
 
@@ -79,21 +79,21 @@ def test_prune_old_issues(tracker):
 
     state = {
         "last_checked": recent_time,
-        "seen_issues": {100, 200, 300},
+        "seen_issues": {"NVIDIA/OpenShell#100", "NVIDIA/OpenShell#200", "NVIDIA/OpenShell#300"},
         "digest_buffer": [],
         "seen_timestamps": {
-            "100": old_time,
-            "200": old_time,
-            "300": recent_time,
+            "NVIDIA/OpenShell#100": old_time,
+            "NVIDIA/OpenShell#200": old_time,
+            "NVIDIA/OpenShell#300": recent_time,
         },
     }
     tracker.save(state)
 
     loaded = tracker.load()
     pruned = tracker.prune_seen(loaded, max_age_days=30)
-    assert 300 in pruned["seen_issues"]
-    assert 100 not in pruned["seen_issues"]
-    assert 200 not in pruned["seen_issues"]
+    assert "NVIDIA/OpenShell#300" in pruned["seen_issues"]
+    assert "NVIDIA/OpenShell#100" not in pruned["seen_issues"]
+    assert "NVIDIA/OpenShell#200" not in pruned["seen_issues"]
 
 
 def test_save_creates_parent_dirs(tmp_path):
@@ -107,7 +107,7 @@ def test_save_creates_parent_dirs(tmp_path):
 def test_seen_issues_serialized_as_list(tracker, state_path):
     state = {
         "last_checked": "2026-07-23T14:00:00+00:00",
-        "seen_issues": {1, 2, 3},
+        "seen_issues": {"repo/a#1", "repo/a#2", "repo/a#3"},
         "digest_buffer": [],
     }
     tracker.save(state)

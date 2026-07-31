@@ -62,7 +62,7 @@ def test_fetch_new_issues_filters_seen(mock_get, github_source, mock_issues_resp
     issues = github_source.fetch_new_issues(
         repos=["NVIDIA/OpenShell"],
         since="2026-07-23T12:00:00Z",
-        seen_ids={2401},
+        seen_ids={"NVIDIA/OpenShell#2401"},
     )
 
     assert len(issues) == 1
@@ -196,3 +196,31 @@ def test_fetch_filters_correctly_when_since_has_microseconds(mock_get, github_so
     )
 
     assert len(issues) == 0  # issue should be filtered — it was created before since
+
+
+@patch("app.sources.github.requests.get")
+def test_fetch_new_issues_same_number_different_repos_no_collision(
+    mock_get, github_source
+):
+    """Issue #1 seen in repo A should not filter issue #1 from repo B."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = [
+        {
+            "number": 1,
+            "title": "Issue in this repo",
+            "body": "Test.",
+            "labels": [],
+            "html_url": "https://github.com/other/repo/issues/1",
+            "created_at": "2026-07-23T14:00:00Z",
+        },
+    ]
+    mock_get.return_value = mock_response
+
+    issues = github_source.fetch_new_issues(
+        repos=["other/repo"],
+        since="2026-07-23T12:00:00Z",
+        seen_ids={"NVIDIA/OpenShell#1"},
+    )
+
+    assert len(issues) == 1

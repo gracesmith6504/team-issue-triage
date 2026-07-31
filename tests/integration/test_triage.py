@@ -147,7 +147,7 @@ def test_run_triage_with_escalation(
 
     mock_assess.assert_called_once()
     state = json.loads(config.state_path.read_text())
-    assert 2401 in state["seen_issues"]
+    assert "NVIDIA/OpenShell#2401" in state["seen_issues"]
 
 
 @patch("app.triage.GitHubSource")
@@ -202,7 +202,7 @@ def test_run_triage_track_goes_to_digest(
 def test_run_digest_flushes_buffer(config):
     state = {
         "last_checked": "2026-07-23T14:00:00+00:00",
-        "seen_issues": [2399],
+        "seen_issues": ["NVIDIA/OpenShell#2399"],
         "digest_buffer": [
             {
                 "issue_number": 2399,

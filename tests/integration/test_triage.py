@@ -68,6 +68,14 @@ def test_load_config_anthropic_missing_api_key_raises(monkeypatch):
         load_config()
 
 
+def test_load_config_invalid_provider_raises(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+
+    with pytest.raises(ValueError, match="Unsupported LLM_PROVIDER"):
+        load_config()
+
+
 @patch("app.triage.GitHubSource")
 @patch("app.triage.create_llm_client")
 def test_run_triage_no_new_issues(mock_create_llm, mock_github_cls, config):

@@ -45,6 +45,13 @@ def load_config() -> TriageConfig:
             "Set it to your Anthropic API key."
         )
 
+    github_token = os.environ.get("GITHUB_TOKEN")
+    if not github_token:
+        raise ValueError(
+            "GITHUB_TOKEN is required. "
+            "Set it to a GitHub personal access token with repo read access."
+        )
+
     return TriageConfig(
         watch_repos=watch_repos,
         llm_provider=llm_provider,
@@ -52,7 +59,7 @@ def load_config() -> TriageConfig:
         vertex_project_id=vertex_project_id,
         vertex_region=os.environ.get("VERTEX_REGION", "us-east5"),
         anthropic_api_key=anthropic_api_key,
-        github_token=os.environ["GITHUB_TOKEN"],
+        github_token=github_token,
         slack_webhook_url=os.environ.get("SLACK_WEBHOOK_URL"),
         state_path=Path(os.environ.get("STATE_PATH", "/data/state.json")),
         profiles_dir=Path(os.environ.get("PROFILES_DIR", "profiles")),

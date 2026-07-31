@@ -76,6 +76,15 @@ def test_load_config_invalid_provider_raises(monkeypatch):
         load_config()
 
 
+def test_load_config_missing_github_token_raises(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "vertex")
+    monkeypatch.setenv("VERTEX_PROJECT_ID", "test-project")
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+
+    with pytest.raises(ValueError, match="GITHUB_TOKEN"):
+        load_config()
+
+
 @patch("app.triage.GitHubSource")
 @patch("app.triage.create_llm_client")
 def test_run_triage_no_new_issues(mock_create_llm, mock_github_cls, config):

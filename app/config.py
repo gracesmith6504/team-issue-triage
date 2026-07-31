@@ -2,6 +2,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.core.llm import PROVIDERS
+
 
 @dataclass
 class TriageConfig:
@@ -23,6 +25,12 @@ def load_config() -> TriageConfig:
     watch_repos = [r.strip() for r in repos_str.split(",") if r.strip()]
 
     llm_provider = os.environ.get("LLM_PROVIDER", "vertex")
+    if llm_provider not in PROVIDERS:
+        raise ValueError(
+            f"Unsupported LLM_PROVIDER={llm_provider!r}. "
+            f"Valid providers: {', '.join(PROVIDERS)}"
+        )
+
     vertex_project_id = os.environ.get("VERTEX_PROJECT_ID")
     anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
 

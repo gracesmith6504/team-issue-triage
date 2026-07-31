@@ -78,9 +78,10 @@ def run_triage(config: TriageConfig) -> None:
             )
             state["digest_buffer"].append(entry.to_dict())
 
-        state["seen_issues"].add(issue.number)
+        issue_key = f"{issue.repo}#{issue.number}"
+        state["seen_issues"].add(issue_key)
         now_str = datetime.now(timezone.utc).isoformat()
-        state.setdefault("seen_timestamps", {})[str(issue.number)] = now_str
+        state.setdefault("seen_timestamps", {})[issue_key] = now_str
 
     state["last_checked"] = datetime.now(timezone.utc).isoformat()
     state = tracker.prune_seen(state)

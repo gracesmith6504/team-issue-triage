@@ -19,7 +19,7 @@ class GitHubSource:
         }
 
     def fetch_new_issues(
-        self, repos: list[str], since: str, seen_ids: set[int]
+        self, repos: list[str], since: str, seen_ids: set[str]
     ) -> list[IssueData]:
         all_issues = []
         for repo in repos:
@@ -28,7 +28,7 @@ class GitHubSource:
         return all_issues
 
     def _fetch_repo_issues(
-        self, repo: str, since: str, seen_ids: set[int]
+        self, repo: str, since: str, seen_ids: set[str]
     ) -> list[IssueData]:
         url = f"{GITHUB_API}/repos/{repo}/issues"
         params = {
@@ -53,7 +53,7 @@ class GitHubSource:
         for item in response.json():
             if item.get("pull_request"):
                 continue
-            if item["number"] in seen_ids:
+            if f"{repo}#{item['number']}" in seen_ids:
                 continue
             created = datetime.fromisoformat(item["created_at"].replace("Z", "+00:00"))
             since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))

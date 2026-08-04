@@ -1,0 +1,30 @@
+team_id: dashboard
+team_name: "AI Core Dashboard"
+
+description: |
+  Agent dashboard UI, deploy wizard, admin console. Only cares about
+  upstream API changes that affect their UI — NOT CLI bugs, policy
+  fixes, or compute driver internals.
+
+areas:
+  primary: []
+  secondary: []
+
+urgency_overrides:
+  high:
+    - "Breaking API change affecting workspace CRUD"
+    - "Breaking API change affecting sandbox management endpoints"
+
+examples:
+  - title: "Stabilize public API, SDK, and extension contracts for beta"
+    urgency: medium
+    reasoning: "API stability affects dashboard integration"
+
+notifications:
+  receive_secondary: true
+  secondary_min_urgency: high
+  channels:
+    - adapter: log
+      config:
+        level: info
+      immediate_on: [critical, high, medium, low]

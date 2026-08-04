@@ -1,0 +1,44 @@
+team_id: ai-safety
+team_name: "AI Safety"
+
+description: |
+  Red teaming OpenShell, guardrails, policy engine, OLS guardrails,
+  injection detection, L7 inspection.
+
+areas:
+  primary:
+    - policy
+    - l7
+  secondary:
+    - supervisor
+    - supervisor-middleware
+    - proxy
+
+urgency_overrides:
+  critical:
+    - "Policy bypass vulnerability"
+    - "Guardrails injection detection failure"
+  high:
+    - "Policy engine regression"
+    - "SPIFFE identity security issues"
+
+examples:
+  - title: "feat(policy): distinguish single- and multi-segment path wildcards"
+    urgency: medium
+    reasoning: "Policy engine, AI Safety's area"
+  - title: "bug(supervisor): SPIFFE-enabled sandboxes crash on restart"
+    urgency: high
+    reasoning: "SPIFFE identity security, even though prefix says supervisor"
+
+notifications:
+  receive_secondary: true
+  secondary_min_urgency: medium
+  channels:
+    - adapter: slack_webhook
+      config:
+        webhook_url: "${SLACK_WEBHOOK_AI_SAFETY}"
+      immediate_on: [critical, high]
+    - adapter: log
+      config:
+        level: info
+      immediate_on: [critical, high, medium, low]

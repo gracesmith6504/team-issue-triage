@@ -2,11 +2,11 @@ from dataclasses import dataclass
 from enum import Enum
 
 
-class Verdict(str, Enum):
-    ESCALATE = "ESCALATE"
-    TRACK = "TRACK"
-    WATCH = "WATCH"
-    SKIP = "SKIP"
+class Urgency(str, Enum):
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
 
 
 @dataclass
@@ -22,66 +22,29 @@ class IssueData:
 
 
 @dataclass
-class Assessment:
+class TriageResult:
     repo: str
     issue_number: int
     issue_title: str
     issue_url: str
-    relevance: int
-    relevance_reason: str
-    urgency: int
-    urgency_reason: str
-    action_clarity: int
-    action_clarity_reason: str
-    total: int
-    verdict: Verdict
-    override_applied: str | None
+    reasoning: str
+    any_team_cares: bool
+    primary_team: str
+    primary_confidence: float
+    secondary_team: str | None
+    secondary_confidence: float | None
+    urgency: Urgency
+    urgency_reasoning: str
     summary: str
     recommendation: str
+    confidence_flag: str | None
     assessed_at: str
 
 
 @dataclass
-class DigestEntry:
-    issue_number: int
-    title: str
-    repo: str
-    relevance: int
-    urgency: int
-    action_clarity: int
-    verdict: str
-    reason: str
-    url: str
-    assessed_at: str
-
-    def to_dict(self) -> dict:
-        return {
-            "issue_number": self.issue_number,
-            "title": self.title,
-            "repo": self.repo,
-            "relevance": self.relevance,
-            "urgency": self.urgency,
-            "action_clarity": self.action_clarity,
-            "verdict": self.verdict,
-            "reason": self.reason,
-            "url": self.url,
-            "assessed_at": self.assessed_at,
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "DigestEntry":
-        return cls(
-            issue_number=data["issue_number"],
-            title=data["title"],
-            repo=data["repo"],
-            relevance=data["relevance"],
-            urgency=data["urgency"],
-            action_clarity=data["action_clarity"],
-            verdict=data["verdict"],
-            reason=data["reason"],
-            url=data["url"],
-            assessed_at=data["assessed_at"],
-        )
-
-
-DIGEST_MAX_ITEMS = 10
+class IssueSignals:
+    title_prefix: str | None
+    area_labels: list[str]
+    topic_labels: list[str]
+    state_label: str | None
+    issue_type: str | None

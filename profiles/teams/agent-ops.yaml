@@ -1,0 +1,63 @@
+team_id: agent-ops
+team_name: "Agent Ops"
+
+description: |
+  Core OpenShell integration on Red Hat OpenShift AI. Owns Helm deployment,
+  SCCs, RBAC, Routes, Go SDK sync, sandbox operator design, and midstream
+  pipeline. Does NOT own: TUI, Docker driver, MicroVM, macOS.
+
+areas:
+  primary:
+    - cli
+    - sdk
+    - python
+    - sandbox
+    - cluster
+    - docs
+    - examples
+    - helm
+    - openshift
+    - kubernetes
+    - e2e
+    - certgen
+    - network
+    - ingress
+  secondary:
+    - gateway
+    - gateway-config
+    - supervisor
+    - supervisor-middleware
+    - proxy
+    - compute
+    - driver-podman
+    - podman
+    - server
+
+urgency_overrides:
+  critical:
+    - "Go SDK protobuf sync failures"
+    - "CI pipeline failures blocking midstream"
+  high:
+    - "Regressions in Helm/SCC/RBAC deployment"
+    - "CVEs in sandbox or supervisor"
+
+examples:
+  - title: "Go SDK protobuf sync failed for v0.4.2"
+    urgency: critical
+    reasoning: "SDK sync errors block the Agent Ops release pipeline"
+  - title: "Helm chart fails when SCC restricts runAsUser"
+    urgency: high
+    reasoning: "OpenShift deployment is Agent Ops's primary focus"
+
+notifications:
+  receive_secondary: true
+  secondary_min_urgency: high
+  channels:
+    - adapter: slack_webhook
+      config:
+        webhook_url: "${SLACK_WEBHOOK_AGENT_OPS}"
+      immediate_on: [critical, high]
+    - adapter: log
+      config:
+        level: info
+      immediate_on: [critical, high, medium, low]

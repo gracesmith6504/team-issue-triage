@@ -1,0 +1,40 @@
+team_id: agentdev
+team_name: "AgentDev"
+
+description: |
+  Harness validation (Codex, OpenCode, etc.), MLflow tracing, coding
+  agent integration, provider compatibility.
+
+areas:
+  primary:
+    - inference
+    - providers
+    - router
+  secondary: []
+
+urgency_overrides:
+  critical:
+    - "Harness compatibility break blocking release"
+  high:
+    - "Integration test failures with supported harnesses"
+    - "Provider routing regression"
+
+examples:
+  - title: "bug: integration test fails with Codex harness on v0.0.90"
+    urgency: high
+    reasoning: "Harness compatibility regression"
+  - title: "feat(inference): add streaming support for tool-use responses"
+    urgency: medium
+    reasoning: "Inference feature in AgentDev's area"
+
+notifications:
+  receive_secondary: false
+  channels:
+    - adapter: slack_webhook
+      config:
+        webhook_url: "${SLACK_WEBHOOK_AGENTDEV}"
+      immediate_on: [critical, high]
+    - adapter: log
+      config:
+        level: info
+      immediate_on: [critical, high, medium, low]

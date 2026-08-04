@@ -1,123 +1,66 @@
-from app.core.models import Verdict
-from app.core.scoring import clamp_score, compute_verdict, format_scores
+from app.core.scoring import apply_confidence_rules
+
+THRESHOLDS = {
+    "auto_assign": 0.8,
+    "multi_team_gap": 0.2,
+    "uncertain": 0.5,
+    "none_min": 0.75,
+}
 
 
-class TestClampScore:
-    def test_valid_int(self):
-        assert clamp_score(3) == 3
+class TestApplyConfidenceRules:
+    def test_auto_assign(self):
+        result = apply_confidence_rules(0.9, 0.5, True, THRESHOLDS)
+        assert result == "auto"
 
-    def test_string_int(self):
-        assert clamp_score("4") == 4
+    def test_auto_assign_boundary(self):
+        result = apply_confidence_rules(0.81, 0.5, True, THRESHOLDS)
+        assert result == "auto"
 
-    def test_below_min(self):
-        assert clamp_score(0) == 1
+    def test_multi_team_small_gap(self):
+        result = apply_confidence_rules(0.85, 0.75, True, THRESHOLDS)
+        assert result == "multi_team"
 
-    def test_above_max(self):
-        assert clamp_score(10) == 5
+    def test_multi_team_equal_confidence(self):
+        result = apply_confidence_rules(0.8, 0.8, True, THRESHOLDS)
+        assert result == "multi_team"
 
-    def test_none(self):
-        assert clamp_score(None) == 3
+    def test_uncertain_low_confidence(self):
+        result = apply_confidence_rules(0.4, None, True, THRESHOLDS)
+        assert result == "uncertain"
 
-    def test_invalid_string(self):
-        assert clamp_score("abc") == 3
+    def test_uncertain_boundary(self):
+        result = apply_confidence_rules(0.49, None, True, THRESHOLDS)
+        assert result == "uncertain"
 
-    def test_boundary_1(self):
-        assert clamp_score(1) == 1
+    def test_normal_assignment(self):
+        result = apply_confidence_rules(0.76, 0.3, True, THRESHOLDS)
+        assert result is None
 
-    def test_boundary_5(self):
-        assert clamp_score(5) == 5
+    def test_normal_no_secondary(self):
+        result = apply_confidence_rules(0.76, None, True, THRESHOLDS)
+        assert result is None
 
+    def test_forced_none_low_confidence_team_picked(self):
+        result = apply_confidence_rules(0.6, None, True, THRESHOLDS)
+        assert result == "forced_none"
 
-class TestComputeVerdict:
-    def test_escalate(self):
-        verdict, total, override = compute_verdict(5, 5, 4)
-        assert verdict == Verdict.ESCALATE
-        assert total == 14
-        assert override is None
+    def test_forced_none_boundary(self):
+        result = apply_confidence_rules(0.74, None, True, THRESHOLDS)
+        assert result == "forced_none"
 
-    def test_track(self):
-        verdict, total, override = compute_verdict(3, 3, 3)
-        assert verdict == Verdict.TRACK
-        assert total == 9
+    def test_forced_none_not_when_already_none(self):
+        result = apply_confidence_rules(0.6, None, False, THRESHOLDS)
+        assert result is None
 
-    def test_watch(self):
-        verdict, total, override = compute_verdict(2, 2, 2)
-        assert verdict == Verdict.WATCH
-        assert total == 6
+    def test_forced_none_not_when_above_threshold(self):
+        result = apply_confidence_rules(0.76, None, True, THRESHOLDS)
+        assert result is None
 
-    def test_skip(self):
-        verdict, total, override = compute_verdict(1, 1, 1)
-        assert verdict == Verdict.SKIP
-        assert total == 3
+    def test_no_team_cares_always_none(self):
+        result = apply_confidence_rules(0.9, None, False, THRESHOLDS)
+        assert result is None
 
-    def test_escalate_threshold_boundary(self):
-        verdict, _, _ = compute_verdict(4, 4, 4)
-        assert verdict == Verdict.ESCALATE
-
-    def test_track_threshold_boundary(self):
-        verdict, _, _ = compute_verdict(3, 3, 2)
-        assert verdict == Verdict.TRACK
-
-    def test_watch_threshold_boundary(self):
-        verdict, _, _ = compute_verdict(2, 2, 1)
-        assert verdict == Verdict.WATCH
-
-    def test_override_urgency5_relevance3_forces_escalate(self):
-        verdict, total, override = compute_verdict(3, 5, 1)
-        assert verdict == Verdict.ESCALATE
-        assert total == 9
-        assert override == "Urgency=5 + Relevance>=3 forces ESCALATE"
-
-    def test_override_urgency5_relevance2_no_force(self):
-        verdict, _, override = compute_verdict(2, 5, 1)
-        assert verdict == Verdict.TRACK
-        assert override is None
-
-    def test_override_relevance1_caps_at_watch(self):
-        verdict, total, override = compute_verdict(1, 5, 5)
-        assert verdict == Verdict.WATCH
-        assert total == 11
-        assert override == "Relevance=1 caps at WATCH"
-
-    def test_override_relevance1_already_skip(self):
-        verdict, _, override = compute_verdict(1, 1, 1)
-        assert verdict == Verdict.SKIP
-        assert override is None
-
-    def test_custom_thresholds(self):
-        custom = {"ESCALATE": 14, "TRACK": 10, "WATCH": 6}
-        verdict, _, _ = compute_verdict(4, 4, 4, thresholds=custom)
-        assert verdict == Verdict.TRACK
-
-    def test_override_precedence_relevance1_over_urgency5(self):
-        verdict, _, override = compute_verdict(1, 5, 5)
-        assert verdict == Verdict.WATCH
-        assert "Relevance=1" in override
-
-
-class TestFormatScores:
-    def test_format_with_reasons(self):
-        result = format_scores(
-            relevance=5,
-            urgency=4,
-            action_clarity=3,
-            relevance_reason="Team-owned area",
-            urgency_reason="Regression",
-            action_clarity_reason="Needs investigation",
-        )
-        assert "Team Relevance: 5/5" in result
-        assert "Urgency: 4/5" in result
-        assert "Action Clarity: 3/5" in result
-        assert "Team-owned area" in result
-
-    def test_format_empty_reasons(self):
-        result = format_scores(
-            relevance=3,
-            urgency=2,
-            action_clarity=1,
-            relevance_reason="",
-            urgency_reason="",
-            action_clarity_reason="",
-        )
-        assert "Team Relevance: 3/5" in result
-        assert " — " not in result
+    def test_multi_team_takes_priority_over_forced_none(self):
+        result = apply_confidence_rules(0.7, 0.6, True, THRESHOLDS)
+        assert result == "multi_team"

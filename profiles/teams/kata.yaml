@@ -1,0 +1,43 @@
+team_id: kata
+team_name: "Kata / Agent Sandbox"
+
+description: |
+  VM isolation, Kata containers, agent-sandbox operator, OpenShift
+  Sandboxed Containers integration.
+
+areas:
+  primary:
+    - vm
+    - vm-driver
+    - gpu
+  secondary:
+    - sandbox
+    - compute
+
+urgency_overrides:
+  critical:
+    - "VM escape vulnerability"
+  high:
+    - "Kata container startup failure"
+    - "GPU passthrough regression"
+
+examples:
+  - title: "VM sandbox SSH session disconnects with broken pipe"
+    urgency: high
+    reasoning: "VM-based sandbox isolation issue"
+  - title: "Mount shared folder from host into VM based sandbox"
+    urgency: medium
+    reasoning: "VM sandbox feature request"
+
+notifications:
+  receive_secondary: true
+  secondary_min_urgency: high
+  channels:
+    - adapter: slack_webhook
+      config:
+        webhook_url: "${SLACK_WEBHOOK_KATA}"
+      immediate_on: [critical, high]
+    - adapter: log
+      config:
+        level: info
+      immediate_on: [critical, high, medium, low]

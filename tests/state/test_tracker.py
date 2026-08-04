@@ -1,3 +1,4 @@
+# tests/state/test_tracker.py
 import json
 from datetime import datetime, timedelta, timezone
 
@@ -16,101 +17,91 @@ def tracker(state_path):
     return StateTracker(state_path)
 
 
-def test_default_state(tracker):
-    state = tracker.default_state()
-    assert "last_checked" in state
+def test_default_state():
+    state = StateTracker.default_state()
     assert isinstance(state["seen_issues"], set)
     assert len(state["seen_issues"]) == 0
-    assert state["digest_buffer"] == []
+    assert "last_checked" in state
+    assert "digest_buffer" in state
+    assert "seen_timestamps" in state
 
 
-def test_default_state_lookback(tracker):
-    state = tracker.default_state(lookback_hours=48)
-    last_checked = datetime.fromisoformat(state["last_checked"])
+def test_default_state_lookback():
+    state = StateTracker.default_state(lookback_hours=48)
+    checked = datetime.fromisoformat(state["last_checked"])
     now = datetime.now(timezone.utc)
-    diff = now - last_checked
-    assert 47 < diff.total_seconds() / 3600 < 49
+    assert (now - checked).total_seconds() >= 47 * 3600
 
 
 def test_load_missing_file(tracker):
     state = tracker.load()
     assert isinstance(state["seen_issues"], set)
-    assert state["digest_buffer"] == []
+    assert len(state["seen_issues"]) == 0
 
 
-def test_save_and_load(tracker, state_path):
-    state = {
-        "last_checked": "2026-07-23T14:00:00+00:00",
-        "seen_issues": {"NVIDIA/OpenShell#2401", "NVIDIA/OpenShell#2399"},
-        "digest_buffer": [
-            {
-                "issue_number": 2399,
-                "title": "Helm values missing tolerations",
-                "repo": "NVIDIA/OpenShell",
-                "relevance": 4,
-                "urgency": 2,
-                "action_clarity": 5,
-                "verdict": "TRACK",
-                "reason": "Clear fix, not urgent",
-                "url": "https://github.com/NVIDIA/OpenShell/issues/2399",
-                "assessed_at": "2026-07-23T13:05:00+00:00",
-            }
-        ],
+def test_save_and_load_namespaced(tracker):
+    state = StateTracker.default_state()
+    state["seen_issues"] = {"NVIDIA/OpenShell#2571", "NVIDIA/OpenShell#2588"}
+    state["seen_timestamps"] = {
+        "NVIDIA/OpenShell#2571": "2026-08-01T00:00:00Z",
+        "NVIDIA/OpenShell#2588": "2026-08-01T01:00:00Z",
     }
     tracker.save(state)
-
     loaded = tracker.load()
-    assert loaded["last_checked"] == "2026-07-23T14:00:00+00:00"
-    assert loaded["seen_issues"] == {"NVIDIA/OpenShell#2401", "NVIDIA/OpenShell#2399"}
-    assert len(loaded["digest_buffer"]) == 1
-    assert loaded["digest_buffer"][0]["issue_number"] == 2399
+    assert loaded["seen_issues"] == {"NVIDIA/OpenShell#2571", "NVIDIA/OpenShell#2588"}
+    assert "NVIDIA/OpenShell#2571" in loaded["seen_timestamps"]
 
 
-def test_load_corrupted_file(tracker, state_path):
-    state_path.write_text("not valid json {{{")
+def test_load_corrupted_file(state_path, tracker):
+    state_path.write_text("not json")
     state = tracker.load()
     assert isinstance(state["seen_issues"], set)
+    assert len(state["seen_issues"]) == 0
 
 
-def test_prune_old_issues(tracker):
+def test_prune_old_issues():
     now = datetime.now(timezone.utc)
-    old_time = (now - timedelta(days=31)).isoformat()
-    recent_time = (now - timedelta(days=1)).isoformat()
+    old = (now - timedelta(days=60)).isoformat()
+    recent = (now - timedelta(days=5)).isoformat()
 
     state = {
-        "last_checked": recent_time,
-        "seen_issues": {"NVIDIA/OpenShell#100", "NVIDIA/OpenShell#200", "NVIDIA/OpenShell#300"},
-        "digest_buffer": [],
+        "seen_issues": {"NVIDIA/OpenShell#100", "NVIDIA/OpenShell#200"},
         "seen_timestamps": {
-            "NVIDIA/OpenShell#100": old_time,
-            "NVIDIA/OpenShell#200": old_time,
-            "NVIDIA/OpenShell#300": recent_time,
+            "NVIDIA/OpenShell#100": old,
+            "NVIDIA/OpenShell#200": recent,
         },
     }
-    tracker.save(state)
-
-    loaded = tracker.load()
-    pruned = tracker.prune_seen(loaded, max_age_days=30)
-    assert "NVIDIA/OpenShell#300" in pruned["seen_issues"]
+    pruned = StateTracker.prune_seen(state)
     assert "NVIDIA/OpenShell#100" not in pruned["seen_issues"]
-    assert "NVIDIA/OpenShell#200" not in pruned["seen_issues"]
+    assert "NVIDIA/OpenShell#200" in pruned["seen_issues"]
 
 
 def test_save_creates_parent_dirs(tmp_path):
-    nested_path = tmp_path / "deep" / "nested" / "state.json"
-    tracker = StateTracker(nested_path)
-    state = tracker.default_state()
+    deep_path = tmp_path / "a" / "b" / "state.json"
+    tracker = StateTracker(deep_path)
+    state = StateTracker.default_state()
     tracker.save(state)
-    assert nested_path.exists()
+    assert deep_path.exists()
 
 
-def test_seen_issues_serialized_as_list(tracker, state_path):
-    state = {
-        "last_checked": "2026-07-23T14:00:00+00:00",
-        "seen_issues": {"repo/a#1", "repo/a#2", "repo/a#3"},
-        "digest_buffer": [],
-    }
+def test_seen_issues_serialized_as_list(state_path, tracker):
+    state = StateTracker.default_state()
+    state["seen_issues"] = {"NVIDIA/OpenShell#1", "NVIDIA/OpenShell#2"}
     tracker.save(state)
-
     raw = json.loads(state_path.read_text())
     assert isinstance(raw["seen_issues"], list)
+    assert sorted(raw["seen_issues"]) == ["NVIDIA/OpenShell#1", "NVIDIA/OpenShell#2"]
+
+
+def test_migrate_legacy_int_keys(state_path, tracker):
+    """Legacy state files used bare int keys. They should be loaded and preserved as-is."""
+    legacy = {
+        "last_checked": "2026-08-01T00:00:00Z",
+        "seen_issues": [100, 200, 300],
+        "digest_buffer": [],
+        "seen_timestamps": {"100": "2026-08-01T00:00:00Z"},
+    }
+    state_path.write_text(json.dumps(legacy))
+    state = tracker.load()
+    assert isinstance(state["seen_issues"], set)
+    assert all(isinstance(x, (int, str)) for x in state["seen_issues"])

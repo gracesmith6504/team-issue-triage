@@ -16,8 +16,10 @@ class TriageConfig:
     github_token: str
     slack_webhook_url: str | None
     state_path: Path
+    assessment_log_path: Path
     profiles_dir: Path
     default_lookback_hours: int
+    report_output_path: Path | None
 
 
 def load_config() -> TriageConfig:
@@ -62,6 +64,12 @@ def load_config() -> TriageConfig:
         github_token=github_token,
         slack_webhook_url=os.environ.get("SLACK_WEBHOOK_URL"),
         state_path=Path(os.environ.get("STATE_PATH", "/data/state.json")),
+        assessment_log_path=Path(
+            os.environ.get("ASSESSMENT_LOG_PATH", "/data/assessments.jsonl")
+        ),
         profiles_dir=Path(os.environ.get("PROFILES_DIR", "profiles")),
         default_lookback_hours=int(os.environ.get("DEFAULT_LOOKBACK_HOURS", "24")),
+        report_output_path=Path(p)
+        if (p := os.environ.get("REPORT_OUTPUT_PATH"))
+        else None,
     )

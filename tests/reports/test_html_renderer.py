@@ -3,6 +3,7 @@ import json
 from app.core.models import Urgency
 from app.reports.models import DuplicateCluster
 from app.reports.renderers.html import _report_to_dict, render_html
+from app.sources.enrichment import EnrichedIssue
 from tests.reports.conftest import make_report, make_result
 
 
@@ -206,3 +207,63 @@ def test_render_html_narrative_not_italic():
     style = html.split("</style>")[0]
     narrative_css = style.split(".narrative")[1].split("}")[0]
     assert "font-style: italic" not in narrative_css
+
+
+# --- Enrichment tests ---
+
+
+def _make_enrichment(
+    number, is_open=True, comment_count=0, assignees=None, has_linked_pr=False
+):
+    result = make_result(number, f"issue {number}")
+    return EnrichedIssue(
+        result=result,
+        is_open=is_open,
+        comment_count=comment_count,
+        assignees=assignees or [],
+        has_linked_pr=has_linked_pr,
+    )
+
+
+def test_render_html_without_enrichment_unchanged():
+    html = render_html(make_report())
+    assert "<!DOCTYPE html>" in html
+    assert "REPORT_DATA" in html
+
+
+def test_render_html_with_enrichment_adds_fields():
+    enrichment = {1: _make_enrichment(1, comment_count=5, has_linked_pr=True)}
+    report = make_report(
+        all_issues=[make_result(1, "test issue", urgency=Urgency.CRITICAL)]
+    )
+    html = render_html(report, enrichment=enrichment)
+    assert '"is_open": true' in html
+    assert '"comment_count": 5' in html
+    assert '"has_linked_pr": true' in html
+
+
+def test_render_html_closed_issue_badge():
+    enrichment = {1: _make_enrichment(1, is_open=False)}
+    report = make_report(
+        all_issues=[make_result(1, "closed issue", urgency=Urgency.CRITICAL)]
+    )
+    html = render_html(report, enrichment=enrichment)
+    assert "closed-badge" in html
+
+
+def test_render_html_pr_badge():
+    enrichment = {1: _make_enrichment(1, has_linked_pr=True)}
+    report = make_report(
+        all_issues=[make_result(1, "issue with pr", urgency=Urgency.CRITICAL)]
+    )
+    html = render_html(report, enrichment=enrichment)
+    assert "pr-badge" in html
+
+
+def test_render_html_comment_count_display():
+    enrichment = {1: _make_enrichment(1, comment_count=12)}
+    report = make_report(
+        all_issues=[make_result(1, "discussed issue", urgency=Urgency.CRITICAL)]
+    )
+    html = render_html(report, enrichment=enrichment)
+    assert "comment-count" in html

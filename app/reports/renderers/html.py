@@ -22,8 +22,13 @@ def _report_to_dict(report: BirdsEyeReport) -> dict:
     return _convert_value(raw)
 
 
-def render_html(report: BirdsEyeReport) -> str:
+def render_html(
+    report: BirdsEyeReport,
+    enrichment: dict | None = None,
+) -> str:
     data = _report_to_dict(report)
+    if enrichment:
+        _apply_enrichment(data, enrichment)
     labels = {}
     if data.get("critical_list"):
         labels["critical"] = "Action Required"
@@ -34,6 +39,26 @@ def render_html(report: BirdsEyeReport) -> str:
     data["_labels"] = labels
     report_json = json.dumps(data, indent=2).replace("<", "\\u003c")
     return _HTML_TEMPLATE.replace("__REPORT_JSON__", report_json)
+
+
+def _apply_enrichment(data: dict, enrichment: dict) -> None:
+    for issue_list_key in ("critical_list", "no_team_list", "all_issues"):
+        for issue in data.get(issue_list_key, []):
+            enr = enrichment.get(issue["issue_number"])
+            if enr:
+                issue["is_open"] = enr.is_open
+                issue["comment_count"] = enr.comment_count
+                issue["assignees"] = enr.assignees
+                issue["has_linked_pr"] = enr.has_linked_pr
+
+    for cluster in data.get("duplicate_clusters", []):
+        for issue in cluster.get("issues", []):
+            enr = enrichment.get(issue["issue_number"])
+            if enr:
+                issue["is_open"] = enr.is_open
+                issue["comment_count"] = enr.comment_count
+                issue["assignees"] = enr.assignees
+                issue["has_linked_pr"] = enr.has_linked_pr
 
 
 _HTML_TEMPLATE = """\
@@ -300,7 +325,7 @@ body {
 
 .table-header {
   display: grid;
-  grid-template-columns: 64px 70px 1fr 120px 90px 100px;
+  grid-template-columns: 64px 70px 1fr 120px 90px 80px 100px;
   padding: 10px 12px;
   font-size: 11px;
   font-weight: 600;
@@ -312,7 +337,7 @@ body {
 
 .table-row {
   display: grid;
-  grid-template-columns: 64px 70px 1fr 120px 90px 100px;
+  grid-template-columns: 64px 70px 1fr 120px 90px 80px 100px;
   padding: 12px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
@@ -519,6 +544,44 @@ body {
   white-space: nowrap;
 }
 
+.closed-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(100, 116, 139, 0.2);
+  color: #64748B;
+}
+
+.pr-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(34, 197, 94, 0.15);
+  color: #22C55E;
+}
+
+.comment-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.issue-card.closed {
+  opacity: 0.6;
+}
+
+.table-row.closed {
+  opacity: 0.5;
+}
+
 .chart-legend {
   display: flex;
   flex-wrap: wrap;
@@ -571,7 +634,7 @@ body {
   }
   .table-header,
   .table-row {
-    grid-template-columns: 50px 60px 1fr 90px 70px 80px;
+    grid-template-columns: 50px 60px 1fr 90px 70px 60px 80px;
     font-size: 12px;
     padding: 8px;
   }
@@ -700,6 +763,24 @@ const REPORT_DATA = __REPORT_JSON__;
     return badge;
   }
 
+  function makeEnrichmentBadges(issue) {
+    var container = makeEl("span");
+    container.style.display = "inline-flex";
+    container.style.gap = "6px";
+    container.style.alignItems = "center";
+    if (issue.is_open === false) {
+      container.appendChild(makeEl("span", "closed-badge", "Closed"));
+    }
+    if (issue.has_linked_pr) {
+      container.appendChild(makeEl("span", "pr-badge", "PR"));
+    }
+    if (issue.comment_count > 0) {
+      container.appendChild(makeEl("span", "comment-count",
+        "\\u{1F4AC} " + issue.comment_count));
+    }
+    return container;
+  }
+
   document.addEventListener("DOMContentLoaded", function() {
     var d = REPORT_DATA;
     var app = document.getElementById("app");
@@ -778,6 +859,17 @@ const REPORT_DATA = __REPORT_JSON__;
         meta.appendChild(document.createTextNode(
           confidenceLabel(issue.primary_confidence) + " confidence"));
         link.appendChild(meta);
+
+        var enrichBadges = makeEnrichmentBadges(issue);
+        if (enrichBadges.childNodes.length > 0) {
+          var enrichRow = makeEl("div", "issue-meta");
+          enrichRow.appendChild(enrichBadges);
+          link.appendChild(enrichRow);
+        }
+
+        if (issue.is_open === false) {
+          link.classList.add("closed");
+        }
 
         if (issue.summary) {
           link.appendChild(makeEl("div", "issue-summary",
@@ -1003,6 +1095,7 @@ const REPORT_DATA = __REPORT_JSON__;
       '<span>Title</span>' +
       '<span>Team</span>' +
       '<span class="hide-mobile">Conf.</span>' +
+      '<span class="hide-mobile">Status</span>' +
       '<span class="hide-mobile">Flag</span>';
     table.appendChild(headerRow);
 
@@ -1030,12 +1123,20 @@ const REPORT_DATA = __REPORT_JSON__;
       row.appendChild(makeEl("span", "cell-confidence hide-mobile",
         confidenceLabel(issue.primary_confidence)));
 
+      var statusCell = makeEl("span", "hide-mobile");
+      statusCell.appendChild(makeEnrichmentBadges(issue));
+      row.appendChild(statusCell);
+
       var flagCell = makeEl("span", "hide-mobile");
       if (issue.confidence_flag) {
         flagCell.appendChild(makeEl("span", "flag-badge",
           escapeHtml(humanizeFlag(issue.confidence_flag))));
       }
       row.appendChild(flagCell);
+
+      if (issue.is_open === false) {
+        row.classList.add("closed");
+      }
 
       table.appendChild(row);
     });

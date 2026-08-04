@@ -176,3 +176,33 @@ def test_render_html_escapes_script_tags():
     html = render_html(report)
     assert "</script><script>" not in html
     assert "\\u003c/script>" in html
+
+
+def test_render_html_formats_timestamp():
+    html = render_html(make_report())
+    assert "formatDate" in html
+    assert 'Generated " + formatDate(' in html
+
+
+def test_render_html_shows_unassigned_for_none_team():
+    html = render_html(
+        make_report(no_team_list=[make_result(99, "orphan", team="none")])
+    )
+    assert "unassigned" in html
+
+
+def test_render_html_urgency_badges_in_table():
+    html = render_html(make_report())
+    assert "CRIT" in html or "HIGH" in html or "MED" in html
+
+
+def test_render_html_has_chart_legend():
+    html = render_html(make_report())
+    assert "chart-legend" in html
+
+
+def test_render_html_narrative_not_italic():
+    html = render_html(make_report())
+    style = html.split("</style>")[0]
+    narrative_css = style.split(".narrative")[1].split("}")[0]
+    assert "font-style: italic" not in narrative_css

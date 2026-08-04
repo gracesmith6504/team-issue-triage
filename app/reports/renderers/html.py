@@ -162,9 +162,8 @@ body {
   border-radius: 0 12px 12px 0;
   padding: 20px 24px;
   margin-bottom: 32px;
-  font-style: italic;
-  color: var(--text-secondary);
-  font-size: 15px;
+  color: var(--text-primary);
+  font-size: 16px;
   line-height: 1.7;
 }
 
@@ -239,7 +238,7 @@ body {
 
 .issue-card .issue-summary {
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
@@ -301,7 +300,7 @@ body {
 
 .table-header {
   display: grid;
-  grid-template-columns: 40px 70px 1fr 120px 90px 100px;
+  grid-template-columns: 64px 70px 1fr 120px 90px 100px;
   padding: 10px 12px;
   font-size: 11px;
   font-weight: 600;
@@ -313,7 +312,7 @@ body {
 
 .table-row {
   display: grid;
-  grid-template-columns: 40px 70px 1fr 120px 90px 100px;
+  grid-template-columns: 64px 70px 1fr 120px 90px 100px;
   padding: 12px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
@@ -442,30 +441,111 @@ body {
 }
 
 .no-team-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
+  display: block;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
-  font-size: 13px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s ease;
+  border-radius: 6px;
 }
 
 .no-team-item:last-child {
   border-bottom: none;
 }
 
-.no-team-item a {
-  color: var(--text-primary);
-  text-decoration: none;
+.no-team-item:hover {
+  background: var(--bg-hover);
+}
+
+.no-team-item .nt-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.no-team-item .nt-number {
+  font-size: 12px;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
-.no-team-item a:hover {
-  color: var(--accent);
+.no-team-item .nt-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.no-team-item .nt-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin-top: 2px;
+  padding-left: 18px;
+}
+
+.no-team-item .nt-summary {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  padding-left: 18px;
 }
 
 .full-width {
   grid-column: 1 / -1;
+}
+
+.urgency-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.flag-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(234, 179, 8, 0.15);
+  color: #EAB308;
+  white-space: nowrap;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.chart-legend-item .legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chart-legend-item .legend-count {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .footer {
@@ -491,7 +571,7 @@ body {
   }
   .table-header,
   .table-row {
-    grid-template-columns: 30px 60px 1fr 90px 70px 80px;
+    grid-template-columns: 50px 60px 1fr 90px 70px 80px;
     font-size: 12px;
     padding: 8px;
   }
@@ -513,7 +593,7 @@ body {
   }
   .table-header,
   .table-row {
-    grid-template-columns: 30px 50px 1fr 80px;
+    grid-template-columns: 40px 50px 1fr 80px;
   }
   .table-header .hide-mobile,
   .table-row .hide-mobile {
@@ -570,6 +650,25 @@ const REPORT_DATA = __REPORT_JSON__;
     return pct + "%";
   }
 
+  function formatDate(iso) {
+    var dt = new Date(iso);
+    var months = ["Jan","Feb","Mar","Apr","May","Jun",
+                  "Jul","Aug","Sep","Oct","Nov","Dec"];
+    return months[dt.getUTCMonth()] + " " + dt.getUTCDate() +
+      ", " + dt.getUTCFullYear();
+  }
+
+  function humanizeFlag(flag) {
+    if (!flag) return "";
+    return flag.replace(/_/g, " ").replace(/\\b\\w/g, function(c) {
+      return c.toUpperCase();
+    });
+  }
+
+  var URGENCY_SHORT = {
+    "critical": "CRIT", "high": "HIGH", "medium": "MED", "low": "LOW"
+  };
+
   function makeEl(tag, className, innerHTML) {
     var el = document.createElement(tag);
     if (className) el.className = className;
@@ -588,7 +687,16 @@ const REPORT_DATA = __REPORT_JSON__;
     var color = getTeamColor(team);
     badge.style.backgroundColor = color + "20";
     badge.style.color = color;
-    badge.textContent = team;
+    badge.textContent = team === "none" ? "unassigned" : team;
+    return badge;
+  }
+
+  function makeUrgencyBadge(urgency) {
+    var badge = makeEl("span", "urgency-badge");
+    var color = getUrgencyColor(urgency);
+    badge.style.backgroundColor = color + "20";
+    badge.style.color = color;
+    badge.textContent = URGENCY_SHORT[urgency] || urgency;
     return badge;
   }
 
@@ -604,7 +712,7 @@ const REPORT_DATA = __REPORT_JSON__;
       escapeHtml(d.summary.period_label)));
     header.appendChild(headerLeft);
     header.appendChild(makeEl("span", "generated-at",
-      "Generated " + escapeHtml(d.generated_at)));
+      "Generated " + formatDate(d.generated_at)));
     app.appendChild(header);
 
     // --- KPI cards ---
@@ -705,14 +813,29 @@ const REPORT_DATA = __REPORT_JSON__;
         d.no_team_list.length + ')</span>'));
 
       d.no_team_list.forEach(function(issue) {
-        var item = makeEl("div", "no-team-item");
-        item.appendChild(makeDot(issue.urgency));
-        var a = document.createElement("a");
-        a.href = issue.issue_url;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        a.textContent = "#" + issue.issue_number + " " + issue.issue_title;
-        item.appendChild(a);
+        var item = document.createElement("a");
+        item.className = "no-team-item";
+        item.href = issue.issue_url;
+        item.target = "_blank";
+        item.rel = "noopener noreferrer";
+
+        var hdr = makeEl("div", "nt-header");
+        hdr.appendChild(makeDot(issue.urgency));
+        hdr.appendChild(makeEl("span", "nt-number",
+          "#" + issue.issue_number));
+        hdr.appendChild(makeEl("span", "nt-title",
+          escapeHtml(issue.issue_title)));
+        item.appendChild(hdr);
+
+        var meta = makeEl("div", "nt-meta");
+        meta.appendChild(makeTeamBadge("none"));
+        item.appendChild(meta);
+
+        if (issue.summary) {
+          item.appendChild(makeEl("div", "nt-summary",
+            escapeHtml(issue.summary)));
+        }
+
         noTeamBox.appendChild(item);
       });
 
@@ -807,6 +930,21 @@ const REPORT_DATA = __REPORT_JSON__;
       plugins: [ChartDataLabels]
     });
 
+    // --- Chart legend ---
+    var legend = makeEl("div", "chart-legend");
+    teamLabels.forEach(function(team, i) {
+      var item = makeEl("div", "chart-legend-item");
+      var dot = makeEl("span", "legend-dot");
+      dot.style.backgroundColor = teamColors[i];
+      item.appendChild(dot);
+      item.appendChild(document.createTextNode(
+        team === "none" ? "unassigned" : team));
+      item.appendChild(makeEl("span", "legend-count",
+        "(" + teamCounts[i] + ")"));
+      legend.appendChild(item);
+    });
+    chartBox.appendChild(legend);
+
     // --- Duplicate clusters ---
     if (d._labels.duplicates) {
       app.appendChild(makeEl("h2", "section-heading",
@@ -860,7 +998,7 @@ const REPORT_DATA = __REPORT_JSON__;
 
     var headerRow = makeEl("div", "table-header");
     headerRow.innerHTML =
-      '<span></span>' +
+      '<span>Urg.</span>' +
       '<span>#</span>' +
       '<span>Title</span>' +
       '<span>Team</span>' +
@@ -876,9 +1014,9 @@ const REPORT_DATA = __REPORT_JSON__;
       row.rel = "noopener noreferrer";
       row.dataset.team = issue.primary_team;
 
-      var dotCell = makeEl("span");
-      dotCell.appendChild(makeDot(issue.urgency));
-      row.appendChild(dotCell);
+      var badgeCell = makeEl("span");
+      badgeCell.appendChild(makeUrgencyBadge(issue.urgency));
+      row.appendChild(badgeCell);
 
       row.appendChild(makeEl("span", "cell-number",
         "#" + issue.issue_number));
@@ -892,8 +1030,12 @@ const REPORT_DATA = __REPORT_JSON__;
       row.appendChild(makeEl("span", "cell-confidence hide-mobile",
         confidenceLabel(issue.primary_confidence)));
 
-      row.appendChild(makeEl("span", "cell-flag hide-mobile",
-        issue.confidence_flag ? escapeHtml(issue.confidence_flag) : ""));
+      var flagCell = makeEl("span", "hide-mobile");
+      if (issue.confidence_flag) {
+        flagCell.appendChild(makeEl("span", "flag-badge",
+          escapeHtml(humanizeFlag(issue.confidence_flag))));
+      }
+      row.appendChild(flagCell);
 
       table.appendChild(row);
     });
@@ -934,7 +1076,7 @@ const REPORT_DATA = __REPORT_JSON__;
     // --- Footer ---
     app.appendChild(makeEl("div", "footer",
       "OpenShell Triage Dashboard &middot; Generated " +
-      escapeHtml(d.generated_at)));
+      formatDate(d.generated_at)));
   });
 })();
 </script>

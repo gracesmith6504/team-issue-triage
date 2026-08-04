@@ -34,17 +34,21 @@ spec:
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /api/health
               port: 8080
-            initialDelaySeconds: 10
             periodSeconds: 30
           readinessProbe:
             httpGet:
               path: /api/health
               port: 8080
-            initialDelaySeconds: 5
             periodSeconds: 10
           volumeMounts:
             - name: state

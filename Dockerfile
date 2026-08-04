@@ -10,4 +10,6 @@ COPY profiles/ profiles/
 
 USER 1001
 
+EXPOSE 8080
+
 ENTRYPOINT ["python", "-m", "app"]

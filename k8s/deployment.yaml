@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: triage-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: triage-dashboard
+  template:
+    metadata:
+      labels:
+        app: triage-dashboard
+    spec:
+      containers:
+        - name: dashboard
+          image: quay.io/gracesmith6504/team-issue-triage:latest
+          args: ["--mode", "serve"]
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: triage-config
+            - secretRef:
+                name: triage-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: state
+              mountPath: /data
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: triage-state

@@ -61,6 +61,8 @@ def read_results(
     log_path: Path,
     *,
     since_hours: int | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     team_filter: str | None = None,
     urgency_filter: str | None = None,
 ) -> list[dict]:
@@ -90,6 +92,24 @@ def read_results(
                 except (KeyError, ValueError):
                     continue
 
+            if start_date:
+                try:
+                    start_dt = datetime.fromisoformat(start_date)
+                    assessed = datetime.fromisoformat(record["assessed_at"])
+                    if assessed < start_dt:
+                        continue
+                except (KeyError, ValueError):
+                    continue
+
+            if end_date:
+                try:
+                    end_dt = datetime.fromisoformat(end_date)
+                    assessed = datetime.fromisoformat(record["assessed_at"])
+                    if assessed > end_dt:
+                        continue
+                except (KeyError, ValueError):
+                    continue
+
             if team_filter and record.get("primary_team") != team_filter:
                 continue
             if urgency_filter and record.get("urgency") != urgency_filter:
@@ -97,6 +117,14 @@ def read_results(
 
             records.append(record)
     return records
+
+
+def read_results_as_triage(
+    log_path: Path,
+    **kwargs,
+) -> list[TriageResult]:
+    records = read_results(log_path, **kwargs)
+    return [record_to_result(r) for r in records]
 
 
 def format_review(records: list[dict]) -> str:

@@ -6,6 +6,7 @@ from app.state.assessment_log import (
     append_result,
     format_review,
     read_results,
+    read_results_as_triage,
     record_to_result,
     result_to_record,
 )
@@ -150,3 +151,58 @@ def test_format_review_groups_by_team():
     output = format_review(records)
     assert "ai-safety" in output
     assert "agent-ops" in output
+
+
+def test_read_results_start_date_filters(tmp_path):
+    log_path = tmp_path / "log.jsonl"
+    old_result = _make_result(assessed_at="2026-07-01T10:00:00+00:00", issue_number=1)
+    new_result = _make_result(assessed_at="2026-07-28T10:00:00+00:00", issue_number=2)
+    append_result(log_path, old_result)
+    append_result(log_path, new_result)
+
+    records = read_results(log_path, start_date="2026-07-20T00:00:00+00:00")
+    assert len(records) == 1
+    assert records[0]["issue_number"] == 2
+
+
+def test_read_results_end_date_filters(tmp_path):
+    log_path = tmp_path / "log.jsonl"
+    old_result = _make_result(assessed_at="2026-07-01T10:00:00+00:00", issue_number=1)
+    new_result = _make_result(assessed_at="2026-07-28T10:00:00+00:00", issue_number=2)
+    append_result(log_path, old_result)
+    append_result(log_path, new_result)
+
+    records = read_results(log_path, end_date="2026-07-15T00:00:00+00:00")
+    assert len(records) == 1
+    assert records[0]["issue_number"] == 1
+
+
+def test_read_results_date_range(tmp_path):
+    log_path = tmp_path / "log.jsonl"
+    for i, date in enumerate(
+        [
+            "2026-07-01T10:00:00+00:00",
+            "2026-07-15T10:00:00+00:00",
+            "2026-07-28T10:00:00+00:00",
+        ]
+    ):
+        append_result(log_path, _make_result(assessed_at=date, issue_number=i + 1))
+
+    records = read_results(
+        log_path,
+        start_date="2026-07-10T00:00:00+00:00",
+        end_date="2026-07-20T00:00:00+00:00",
+    )
+    assert len(records) == 1
+    assert records[0]["issue_number"] == 2
+
+
+def test_read_results_as_triage(tmp_path):
+    log_path = tmp_path / "log.jsonl"
+    result = _make_result()
+    append_result(log_path, result)
+
+    triage_results = read_results_as_triage(log_path)
+    assert len(triage_results) == 1
+    assert isinstance(triage_results[0], TriageResult)
+    assert triage_results[0].issue_number == result.issue_number

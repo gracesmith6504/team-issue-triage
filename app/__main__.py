@@ -1,20 +1,22 @@
 import argparse
 import logging
+from pathlib import Path
 
 from app.config import load_config
-from app.triage import run_digest, run_review, run_triage
+from app.triage import run_digest, run_report, run_review, run_triage
 
 
 def main():
     parser = argparse.ArgumentParser(description="Team issue triage agent")
     parser.add_argument(
         "--mode",
-        choices=["triage", "digest", "review"],
+        choices=["triage", "digest", "review", "report"],
         default="triage",
     )
     parser.add_argument("--verbose", "-v", action="store_true")
     parser.add_argument("--since", type=int, default=None)
     parser.add_argument("--team", type=str, default=None)
+    parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -28,6 +30,8 @@ def main():
         run_review(config, since_hours=args.since, team_filter=args.team)
     elif args.mode == "digest":
         run_digest(config)
+    elif args.mode == "report":
+        run_report(config, output_path=args.output)
     else:
         run_triage(config)
 

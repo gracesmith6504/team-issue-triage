@@ -23,6 +23,7 @@ def config(tmp_path):
         assessment_log_path=tmp_path / "assessments.jsonl",
         profiles_dir=Path(__file__).parent.parent.parent / "profiles",
         default_lookback_hours=24,
+        report_output_path=None,
     )
 
 

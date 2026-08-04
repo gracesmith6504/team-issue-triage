@@ -392,19 +392,13 @@ Add to `TriageConfig`:
 
 ## Phase 2: Bird's Eye View & Duplicate Detection
 
-### 11. TriageResultStore (`app/state/triage_store.py`, new)
+### 11. Extend Assessment Log (`app/state/assessment_log.py`, update)
 
-```python
-class TriageResultStore:
-    def __init__(self, path: Path): ...
-    def save(self, result: TriageResult) -> None: ...
-    def save_batch(self, results: list[TriageResult]) -> None: ...
-    def get_period(self, start: str, end: str) -> list[TriageResult]: ...
-    def get_latest_run(self) -> list[TriageResult]: ...
-    def get_all(self) -> list[TriageResult]: ...
-```
+Phase 1 already built JSONL persistence with `append_result()`, `read_results()` (with `since_hours`, `team_filter`, `urgency_filter`), `result_to_record()`, `record_to_result()`, and `format_review()`. No separate `TriageResultStore` needed.
 
-JSONL format, path from `TRIAGE_STORE_PATH` env var (default `./data/triage_results.jsonl`).
+**Add:**
+- `start_date` / `end_date` (ISO string) parameters to `read_results()` for period-based queries
+- Convenience wrapper `read_results_as_triage(...)` that returns `list[TriageResult]` instead of `list[dict]`
 
 ### 12. Duplicate Detection (`app/reports/duplicates.py`, new)
 
@@ -473,14 +467,15 @@ class BirdsEyeReportGenerator:
 
 Computes all sections from TriageResult lists. One Sonnet call for the narrative summary.
 
-### 15. Renderers (`app/reports/renderers/`)
+### 15. Markdown Renderer (`app/reports/renderers/markdown.py`, new)
 
-- `markdown.py` — `MarkdownRenderer.render(report) -> str`
-- `google_doc.py` — `GoogleDocRenderer.render(report, doc_id) -> None`
+`MarkdownRenderer.render(report: BirdsEyeReport) -> str` — formats the report as readable markdown matching the format shown in the design doc (section 6). Outputs to stdout or file.
+
+Google Doc renderer deferred — markdown output can be pasted manually for now.
 
 ### 16. CLI & Wiring
 
-Add `--mode report` to `__main__.py`. Weekly auto-generation on Monday runs. On-demand via `python -m app --mode report`.
+Add `--mode report` to `__main__.py`. `run_report()` in `triage.py` loads assessment log, computes current + previous period results, generates report, renders to markdown, prints to stdout. Optional `--output` flag writes to file. On-demand via `python -m app --mode report`.
 
 ---
 
@@ -514,17 +509,16 @@ Add `--mode report` to `__main__.py`. Weekly auto-generation on Monday runs. On-
 
 | File | Action |
 |------|--------|
-| `app/state/triage_store.py` | New |
+| `app/state/assessment_log.py` | Extend with period-based queries |
 | `app/reports/__init__.py` | New |
 | `app/reports/models.py` | New |
 | `app/reports/duplicates.py` | New |
 | `app/reports/birds_eye.py` | New |
 | `app/reports/renderers/__init__.py` | New |
 | `app/reports/renderers/markdown.py` | New |
-| `app/reports/renderers/google_doc.py` | New |
 | `app/triage.py` | Wire in report generation |
 | `app/__main__.py` | Add --mode report |
-| `app/config.py` | Add store path, report config |
+| `app/config.py` | Add report config |
 
 ### What stays unchanged
 
@@ -551,11 +545,10 @@ Add `--mode report` to `__main__.py`. Weekly auto-generation on Monday runs. On-
 7. Build notification architecture (adapter protocol, router, webhook adapter, update log adapter) + delete old notifier/slack + add notification tests
 8. Rewrite orchestrator (triage.py, config.py, __main__.py) + update integration tests
 
-### Phase 2 (6 commits)
+### Phase 2 (5 commits)
 
-9. Add TriageResultStore + tests
-10. Add report data models + duplicate detector + tests
+9. Extend assessment_log with period queries + add report data models + tests
+10. Add duplicate detector + tests
 11. Build bird's eye report generator + tests
 12. Build markdown renderer + tests
-13. Build Google Doc renderer + tests
-14. Wire reports into main flow (triage.py, __main__.py, config.py) + integration tests
+13. Wire reports into main flow (triage.py, __main__.py, config.py) + integration tests

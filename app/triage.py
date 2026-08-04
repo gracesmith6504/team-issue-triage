@@ -1,7 +1,8 @@
 import logging
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from app.config import TriageConfig
 from app.core.llm import create_llm_client, resolve_model
@@ -12,11 +13,14 @@ from app.notifications.adapter import ChannelConfig, TeamNotificationConfig
 from app.notifications.log import LogAdapter
 from app.notifications.router import NotificationRouter
 from app.notifications.slack_webhook import SlackWebhookAdapter
+from app.reports.birds_eye import BirdsEyeReportGenerator
+from app.reports.renderers.markdown import render_markdown
 from app.sources.github import GitHubSource
 from app.state.assessment_log import (
     append_result,
     format_review,
     read_results,
+    read_results_as_triage,
     record_to_result,
 )
 from app.state.tracker import StateTracker
@@ -157,3 +161,58 @@ def run_digest(config: TriageConfig) -> None:
 
     state["last_digest"] = datetime.now(timezone.utc).isoformat()
     tracker.save(state)
+
+
+def run_report(config: TriageConfig, *, output_path: Path | None = None) -> None:
+    repo_config = load_repo_config("openshell", profiles_dir=config.profiles_dir)
+    reporting = repo_config.reporting
+
+    now = datetime.now(timezone.utc)
+    period_days = 7 if reporting.get("period") == "weekly" else 1
+
+    # Compute current period start (most recent period_start day)
+    weekday_map = {
+        "monday": 0,
+        "tuesday": 1,
+        "wednesday": 2,
+        "thursday": 3,
+        "friday": 4,
+        "saturday": 5,
+        "sunday": 6,
+    }
+    target_weekday = weekday_map.get(reporting.get("period_start", "monday"), 0)
+    days_since = (now.weekday() - target_weekday) % 7
+    current_start = (now - timedelta(days=days_since)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    previous_start = current_start - timedelta(days=period_days)
+
+    current = read_results_as_triage(
+        config.assessment_log_path,
+        start_date=current_start.isoformat(),
+    )
+    previous = read_results_as_triage(
+        config.assessment_log_path,
+        start_date=previous_start.isoformat(),
+        end_date=current_start.isoformat(),
+    )
+
+    period_label = f"{current_start.strftime('%b %d')} – {now.strftime('%b %d, %Y')}"
+
+    llm_client = _build_llm_client(config)
+    model = resolve_model(config.llm_provider, config.llm_model)
+
+    generator = BirdsEyeReportGenerator(
+        current, previous, llm_client, model, period_label
+    )
+    report = generator.generate()
+
+    md = render_markdown(report)
+
+    dest = output_path or config.report_output_path
+    if dest:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(md)
+        logger.info(f"Report written to {dest}")
+    else:
+        print(md)

@@ -49,3 +49,14 @@ def test_main_review_with_filters(mock_config, mock_review):
         since_hours=48,
         team_filter="agent-ops",
     )
+
+
+@patch("app.__main__.run_report")
+@patch("app.__main__.load_config")
+def test_main_report_mode(mock_config, mock_report):
+    mock_config.return_value = MagicMock()
+    from app.__main__ import main
+
+    with patch("sys.argv", ["app", "--mode", "report"]):
+        main()
+    mock_report.assert_called_once()

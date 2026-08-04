@@ -19,6 +19,7 @@ class TriageConfig:
     assessment_log_path: Path
     profiles_dir: Path
     default_lookback_hours: int
+    report_output_path: Path | None
 
 
 def load_config() -> TriageConfig:
@@ -68,4 +69,7 @@ def load_config() -> TriageConfig:
         ),
         profiles_dir=Path(os.environ.get("PROFILES_DIR", "profiles")),
         default_lookback_hours=int(os.environ.get("DEFAULT_LOOKBACK_HOURS", "24")),
+        report_output_path=Path(p)
+        if (p := os.environ.get("REPORT_OUTPUT_PATH"))
+        else None,
     )

@@ -1,0 +1,48 @@
+team_id: acp
+team_name: "ACP / OpenShell as Service"
+
+description: |
+  Hosted OpenShell on ROSA. Owns gateway RBAC, OIDC, multi-tenancy,
+  namespace mapping, hosted-mode e2e testing.
+
+areas:
+  primary:
+    - gateway
+    - gateway-config
+    - server
+    - auth
+    - access-control
+  secondary:
+    - cluster
+    - kubernetes
+    - helm
+    - openshift
+
+urgency_overrides:
+  critical:
+    - "Gateway RBAC bypass"
+    - "OIDC token validation failure"
+  high:
+    - "Multi-tenancy namespace isolation breach"
+    - "Hosted mode e2e test failures"
+
+examples:
+  - title: "feat(gateway): make Postgres connection pool configurable"
+    urgency: medium
+    reasoning: "Gateway config, ACP runs gateway at scale"
+  - title: "feat(server): implement grpc.health.v1.Health/Watch"
+    urgency: medium
+    reasoning: "Server HA, ACP cares for hosted mode"
+
+notifications:
+  receive_secondary: true
+  secondary_min_urgency: high
+  channels:
+    - adapter: slack_webhook
+      config:
+        webhook_url: "${SLACK_WEBHOOK_ACP}"
+      immediate_on: [critical, high]
+    - adapter: log
+      config:
+        level: info
+      immediate_on: [critical, high, medium, low]

@@ -1,44 +1,31 @@
 import logging
 
-from app.core.models import Assessment, DigestEntry, DIGEST_MAX_ITEMS
-from app.core.scoring import format_scores
+from app.core.models import TriageResult
 
 logger = logging.getLogger(__name__)
 
+_SEVERITY = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
-class LogNotifier:
-    def send_escalation(self, assessment: Assessment) -> None:
-        scores = format_scores(
-            relevance=assessment.relevance,
-            urgency=assessment.urgency,
-            action_clarity=assessment.action_clarity,
-            relevance_reason=assessment.relevance_reason,
-            urgency_reason=assessment.urgency_reason,
-            action_clarity_reason=assessment.action_clarity_reason,
-        )
+
+class LogAdapter:
+    def deliver_immediate(self, result: TriageResult, channel_config: dict) -> None:
         print(
-            f"[ESCALATE] #{assessment.issue_number}: {assessment.issue_title}\n"
-            f"  {assessment.issue_url}\n"
-            f"  {assessment.summary}\n"
-            f"  {scores}\n"
-            f"  Recommendation: {assessment.recommendation}"
+            f"[IMMEDIATE] #{result.issue_number} → {result.primary_team} "
+            f"({result.urgency.value}): {result.issue_title}"
         )
+        print(f"  Summary: {result.summary}")
+        print(f"  Recommendation: {result.recommendation}")
+        if result.secondary_team:
+            print(f"  Also relevant to: {result.secondary_team}")
 
-    def send_digest(self, entries: list[DigestEntry]) -> None:
-        if not entries:
-            print("[DIGEST] Empty — no TRACK items to report.")
+    def deliver_digest(self, results: list[TriageResult], channel_config: dict) -> None:
+        if not results:
+            print("[DIGEST] 0 issues")
             return
+        team = results[0].primary_team
+        print(f"[DIGEST] {team}: {len(results)} issues")
+        for r in sorted(results, key=lambda x: _SEVERITY.get(x.urgency.value, 99)):
+            print(f"  #{r.issue_number} {r.issue_title} — {r.urgency.value}")
 
-        sorted_entries = sorted(entries, key=lambda e: e.urgency, reverse=True)
-        shown = sorted_entries[:DIGEST_MAX_ITEMS]
-        omitted = len(sorted_entries) - len(shown)
-
-        print(f"[DIGEST] {len(sorted_entries)} items:")
-        for entry in shown:
-            print(
-                f"  - #{entry.issue_number}: {entry.title} "
-                f"(R={entry.relevance} U={entry.urgency} AC={entry.action_clarity}) "
-                f"— {entry.reason}"
-            )
-        if omitted > 0:
-            print(f"  ... and {omitted} more omitted")
+    def collect_feedback(self) -> list:
+        return []

@@ -1,17 +1,15 @@
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.config import TriageConfig, load_config
-from app.core.models import Verdict
-from app.triage import run_digest, run_triage
+from app.triage import run_triage
 
 
 @pytest.fixture()
 def config(tmp_path):
-    profiles_dir = tmp_path / "profiles"
-    profiles_dir.mkdir()
     return TriageConfig(
         watch_repos=["NVIDIA/OpenShell"],
         llm_provider="vertex",
@@ -19,10 +17,11 @@ def config(tmp_path):
         vertex_project_id="test-project",
         vertex_region="us-east5",
         anthropic_api_key=None,
-        github_token="test-github-token",
+        github_token="ghp_test",
         slack_webhook_url=None,
         state_path=tmp_path / "state.json",
-        profiles_dir=profiles_dir,
+        assessment_log_path=tmp_path / "assessments.jsonl",
+        profiles_dir=Path(__file__).parent.parent.parent / "profiles",
         default_lookback_hours=24,
     )
 
@@ -43,7 +42,7 @@ def test_load_config_from_env(monkeypatch):
 
 def test_load_config_defaults(monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
-    monkeypatch.setenv("VERTEX_PROJECT_ID", "default-project")  # required for vertex
+    monkeypatch.setenv("VERTEX_PROJECT_ID", "default-project")
     config = load_config()
     assert config.llm_provider == "vertex"
     assert config.vertex_region == "us-east5"
@@ -85,143 +84,138 @@ def test_load_config_missing_github_token_raises(monkeypatch):
         load_config()
 
 
-@patch("app.triage.GitHubSource")
-@patch("app.triage.create_llm_client")
-def test_run_triage_no_new_issues(mock_create_llm, mock_github_cls, config):
-    mock_source = MagicMock()
-    mock_source.fetch_new_issues.return_value = []
-    mock_github_cls.return_value = mock_source
-
-    mock_llm = MagicMock()
-    mock_create_llm.return_value = mock_llm
-
-    run_triage(config)
-
-    mock_source.fetch_new_issues.assert_called_once()
-    mock_llm.assess.assert_not_called()
-
-
-@patch("app.triage.GitHubSource")
-@patch("app.triage.create_llm_client")
-@patch("app.triage.assess_issue")
-def test_run_triage_with_escalation(
-    mock_assess, mock_create_llm, mock_github_cls, config
-):
-    from app.core.models import Assessment, IssueData
-
-    mock_source = MagicMock()
-    mock_source.fetch_new_issues.return_value = [
-        IssueData(
-            repo="NVIDIA/OpenShell",
-            number=2401,
-            title="protobuf sync failed",
-            body="Sync failed.",
-            labels=["kind/bug"],
-            comments=[],
-            url="https://github.com/NVIDIA/OpenShell/issues/2401",
-            created_at="2026-07-23T14:00:00Z",
-        )
-    ]
-    mock_github_cls.return_value = mock_source
-
-    mock_assess.return_value = Assessment(
-        repo="NVIDIA/OpenShell",
-        issue_number=2401,
-        issue_title="protobuf sync failed",
-        issue_url="https://github.com/NVIDIA/OpenShell/issues/2401",
-        relevance=5,
-        relevance_reason="Team-owned",
-        urgency=5,
-        urgency_reason="Blocker",
-        action_clarity=4,
-        action_clarity_reason="Clear fix",
-        total=14,
-        verdict=Verdict.ESCALATE,
-        override_applied=None,
-        summary="SDK sync failure",
-        recommendation="Re-run sync",
-        assessed_at="2026-07-23T14:05:00+00:00",
-    )
-
-    run_triage(config)
-
-    mock_assess.assert_called_once()
-    state = json.loads(config.state_path.read_text())
-    assert "NVIDIA/OpenShell#2401" in state["seen_issues"]
-
-
-@patch("app.triage.GitHubSource")
-@patch("app.triage.create_llm_client")
-@patch("app.triage.assess_issue")
-def test_run_triage_track_goes_to_digest(
-    mock_assess, mock_create_llm, mock_github_cls, config
-):
-    from app.core.models import Assessment, IssueData
-
-    mock_source = MagicMock()
-    mock_source.fetch_new_issues.return_value = [
-        IssueData(
-            repo="NVIDIA/OpenShell",
-            number=2399,
-            title="Helm values issue",
-            body="Missing tolerations.",
-            labels=[],
-            comments=[],
-            url="https://github.com/NVIDIA/OpenShell/issues/2399",
-            created_at="2026-07-23T12:00:00Z",
-        )
-    ]
-    mock_github_cls.return_value = mock_source
-
-    mock_assess.return_value = Assessment(
-        repo="NVIDIA/OpenShell",
-        issue_number=2399,
-        issue_title="Helm values issue",
-        issue_url="https://github.com/NVIDIA/OpenShell/issues/2399",
-        relevance=4,
-        urgency=2,
-        action_clarity=5,
-        total=11,
-        verdict=Verdict.TRACK,
-        override_applied=None,
-        summary="Missing tolerations",
-        recommendation="Add tolerations passthrough",
-        relevance_reason="OpenShift area",
-        urgency_reason="Not urgent",
-        action_clarity_reason="Clear fix",
-        assessed_at="2026-07-23T13:05:00+00:00",
-    )
-
-    run_triage(config)
-
-    state = json.loads(config.state_path.read_text())
-    assert len(state["digest_buffer"]) == 1
-    assert state["digest_buffer"][0]["issue_number"] == 2399
-
-
-def test_run_digest_flushes_buffer(config):
-    state = {
-        "last_checked": "2026-07-23T14:00:00+00:00",
-        "seen_issues": ["NVIDIA/OpenShell#2399"],
-        "digest_buffer": [
-            {
-                "issue_number": 2399,
-                "title": "Helm values issue",
-                "repo": "NVIDIA/OpenShell",
-                "relevance": 4,
-                "urgency": 2,
-                "action_clarity": 5,
-                "verdict": "TRACK",
-                "reason": "OpenShift gap",
-                "url": "https://github.com/NVIDIA/OpenShell/issues/2399",
-                "assessed_at": "2026-07-23T13:05:00+00:00",
-            }
-        ],
-        "seen_timestamps": {},
+def test_load_config_from_env_anthropic():
+    env = {
+        "GITHUB_TOKEN": "ghp_test",
+        "LLM_PROVIDER": "anthropic",
+        "ANTHROPIC_API_KEY": "sk-test",
+        "STATE_PATH": "/tmp/state.json",
     }
-    config.state_path.write_text(json.dumps(state))
+    with patch.dict("os.environ", env, clear=False):
+        config = load_config()
+    assert config.github_token == "ghp_test"
+    assert config.llm_provider == "anthropic"
 
-    run_digest(config)
 
-    updated = json.loads(config.state_path.read_text())
-    assert updated["digest_buffer"] == []
+def test_run_triage_no_new_issues(config):
+    with (
+        patch("app.triage.GitHubSource") as mock_source_cls,
+        patch("app.triage.create_llm_client") as mock_llm_factory,
+    ):
+        mock_source = MagicMock()
+        mock_source.fetch_new_issues.return_value = []
+        mock_source_cls.return_value = mock_source
+        mock_llm_factory.return_value = MagicMock()
+
+        run_triage(config)
+
+        mock_source.fetch_new_issues.assert_called_once()
+        assert config.state_path.exists()
+
+
+def test_run_triage_with_classification(config):
+    from app.core.models import IssueData
+
+    mock_issue = IssueData(
+        repo="NVIDIA/OpenShell",
+        number=2571,
+        title="bug(supervisor): SPIFFE crash",
+        body="SPIFFE sandboxes crash on restart",
+        labels=["Bug"],
+        comments=[],
+        url="https://github.com/NVIDIA/OpenShell/issues/2571",
+        created_at="2026-08-01T00:00:00Z",
+    )
+
+    with (
+        patch("app.triage.GitHubSource") as mock_source_cls,
+        patch("app.triage.create_llm_client") as mock_llm_factory,
+    ):
+        mock_source = MagicMock()
+        mock_source.fetch_new_issues.return_value = [mock_issue]
+        mock_source_cls.return_value = mock_source
+
+        mock_llm = MagicMock()
+        mock_llm.assess.return_value = {
+            "reasoning": "SPIFFE is security",
+            "any_team_cares": True,
+            "primary_team": "ai-safety",
+            "primary_confidence": 0.85,
+            "secondary_team": "agent-ops",
+            "secondary_confidence": 0.65,
+            "urgency": "high",
+            "urgency_reasoning": "Security crash",
+            "summary": "SPIFFE crash",
+            "recommendation": "Investigate",
+        }
+        mock_llm_factory.return_value = mock_llm
+
+        run_triage(config)
+
+        assert config.assessment_log_path.exists()
+        records = json.loads(config.assessment_log_path.read_text().strip())
+        assert records["primary_team"] == "ai-safety"
+
+        state = json.loads(config.state_path.read_text())
+        assert "NVIDIA/OpenShell#2571" in state["seen_issues"]
+
+
+def test_run_triage_dedup_across_runs(config):
+    """Second run should not re-process issues seen in the first run."""
+    from app.core.models import IssueData
+
+    mock_issue = IssueData(
+        repo="NVIDIA/OpenShell",
+        number=2571,
+        title="bug(supervisor): SPIFFE crash",
+        body="SPIFFE sandboxes crash on restart",
+        labels=["Bug"],
+        comments=[],
+        url="https://github.com/NVIDIA/OpenShell/issues/2571",
+        created_at="2026-08-01T00:00:00Z",
+    )
+
+    llm_response = {
+        "reasoning": "SPIFFE is security",
+        "any_team_cares": True,
+        "primary_team": "ai-safety",
+        "primary_confidence": 0.85,
+        "secondary_team": None,
+        "secondary_confidence": None,
+        "urgency": "high",
+        "urgency_reasoning": "Security crash",
+        "summary": "SPIFFE crash",
+        "recommendation": "Investigate",
+    }
+
+    with (
+        patch("app.triage.GitHubSource") as mock_source_cls,
+        patch("app.triage.create_llm_client") as mock_llm_factory,
+    ):
+        mock_source = MagicMock()
+        mock_source.fetch_new_issues.return_value = [mock_issue]
+        mock_source_cls.return_value = mock_source
+
+        mock_llm = MagicMock()
+        mock_llm.assess.return_value = llm_response
+        mock_llm_factory.return_value = mock_llm
+
+        # First run: issue is processed
+        run_triage(config)
+        assert mock_llm.assess.call_count == 1
+
+        # Second run: same issue should be deduped via seen_numbers
+        mock_llm.assess.reset_mock()
+        mock_source.fetch_new_issues.reset_mock()
+        mock_source.fetch_new_issues.return_value = [mock_issue]
+
+        run_triage(config)
+
+        # Verify that seen_numbers (with int 2571) was passed, not the
+        # namespaced string set
+        call_args = mock_source.fetch_new_issues.call_args
+        seen_arg = call_args[0][2]
+        assert 2571 in seen_arg
+        assert isinstance(seen_arg, set)
+        for item in seen_arg:
+            assert isinstance(item, int)

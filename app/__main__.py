@@ -2,20 +2,19 @@ import argparse
 import logging
 
 from app.config import load_config
-from app.triage import run_digest, run_triage
+from app.triage import run_digest, run_review, run_triage
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Team Issue Triage Agent")
+    parser = argparse.ArgumentParser(description="Team issue triage agent")
     parser.add_argument(
         "--mode",
-        choices=["triage", "digest"],
+        choices=["triage", "digest", "review"],
         default="triage",
-        help="Run mode: triage (assess new issues) or digest (flush daily digest)",
     )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable debug logging"
-    )
+    parser.add_argument("--verbose", "-v", action="store_true")
+    parser.add_argument("--since", type=int, default=None)
+    parser.add_argument("--team", type=str, default=None)
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -25,10 +24,12 @@ def main():
 
     config = load_config()
 
-    if args.mode == "triage":
-        run_triage(config)
+    if args.mode == "review":
+        run_review(config, since_hours=args.since, team_filter=args.team)
     elif args.mode == "digest":
         run_digest(config)
+    else:
+        run_triage(config)
 
 
 if __name__ == "__main__":

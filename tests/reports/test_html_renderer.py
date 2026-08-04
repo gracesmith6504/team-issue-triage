@@ -1,7 +1,8 @@
 import json
 
 from app.core.models import Urgency
-from app.reports.renderers.html import _report_to_dict
+from app.reports.models import DuplicateCluster
+from app.reports.renderers.html import _report_to_dict, render_html
 from tests.reports.conftest import make_report, make_result
 
 
@@ -85,3 +86,80 @@ def test_report_to_dict_is_json_serializable():
     assert isinstance(serialized, str)
     roundtrip = json.loads(serialized)
     assert roundtrip["summary"]["new_this_period"] == 5
+
+
+# --- HTML output tests ---
+
+
+def test_render_html_returns_valid_html():
+    html = render_html(make_report())
+    assert "<!DOCTYPE html>" in html
+    assert "<html" in html
+    assert "</html>" in html
+
+
+def test_render_html_embeds_report_data():
+    html = render_html(make_report())
+    assert "REPORT_DATA" in html
+    assert '"new_this_period": 5' in html
+
+
+def test_render_html_includes_chart_js_cdn():
+    html = render_html(make_report())
+    assert "cdn.jsdelivr.net/npm/chart.js" in html
+
+
+def test_render_html_includes_all_teams():
+    html = render_html(make_report())
+    assert "agent-ops" in html
+    assert "ai-safety" in html
+
+
+def test_render_html_includes_critical_issues():
+    report = make_report(
+        critical_list=[
+            make_result(2518, "SPIFFE crash", urgency=Urgency.CRITICAL),
+            make_result(2520, "sandbox fail", urgency=Urgency.HIGH),
+        ]
+    )
+    html = render_html(report)
+    assert "2518" in html
+    assert "2520" in html
+
+
+def test_render_html_no_team_issues_present():
+    report = make_report(no_team_list=[make_result(99, "orphan issue", team="none")])
+    html = render_html(report)
+    assert "orphan issue" in html
+    assert "Needs Triage" in html
+
+
+def test_render_html_duplicate_clusters_present():
+    cluster = DuplicateCluster(
+        area="gateway",
+        issues=[make_result(5, "gw bug 1"), make_result(6, "gw bug 2")],
+        similarity_reason="shared: gateway, tls",
+    )
+    html = render_html(make_report(duplicate_clusters=[cluster]))
+    assert "gateway" in html
+    assert "shared: gateway, tls" in html
+
+
+def test_render_html_hides_empty_critical():
+    html = render_html(make_report(critical_list=[]))
+    assert "Action Required" not in html
+
+
+def test_render_html_hides_empty_duplicates():
+    html = render_html(make_report(duplicate_clusters=[]))
+    assert "Potential Duplicates" not in html
+
+
+def test_render_html_hides_empty_no_team():
+    html = render_html(make_report(no_team_list=[]))
+    assert "Needs Triage" not in html
+
+
+def test_render_html_title():
+    html = render_html(make_report())
+    assert "OpenShell Triage Overview" in html

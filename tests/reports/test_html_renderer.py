@@ -163,3 +163,16 @@ def test_render_html_hides_empty_no_team():
 def test_render_html_title():
     html = render_html(make_report())
     assert "OpenShell Triage Overview" in html
+
+
+def test_render_html_escapes_script_tags():
+    report = make_report(
+        critical_list=[
+            make_result(
+                1, "</script><script>alert(1)</script>", urgency=Urgency.CRITICAL
+            )
+        ]
+    )
+    html = render_html(report)
+    assert "</script><script>" not in html
+    assert "\\u003c/script>" in html

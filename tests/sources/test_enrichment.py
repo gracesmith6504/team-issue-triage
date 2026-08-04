@@ -1,0 +1,167 @@
+from unittest.mock import MagicMock, patch
+
+from app.core.models import TriageResult, Urgency
+from app.sources.enrichment import enrich_issues
+
+
+def _make_result(number, repo="NVIDIA/OpenShell"):
+    return TriageResult(
+        repo=repo,
+        issue_number=number,
+        issue_title=f"Issue {number}",
+        issue_url=f"https://github.com/{repo}/issues/{number}",
+        reasoning="test",
+        any_team_cares=True,
+        primary_team="agent-ops",
+        primary_confidence=0.9,
+        secondary_team=None,
+        secondary_confidence=None,
+        urgency=Urgency.MEDIUM,
+        urgency_reasoning="test",
+        summary="test",
+        recommendation="test",
+        confidence_flag=None,
+        assessed_at="2026-08-01T00:00:00+00:00",
+    )
+
+
+@patch("app.sources.enrichment.requests.get")
+def test_enrich_issues_basic(mock_get):
+    issue_resp = MagicMock()
+    issue_resp.status_code = 200
+    issue_resp.json.return_value = {
+        "state": "open",
+        "comments": 5,
+        "assignees": [{"login": "alice"}],
+    }
+
+    timeline_resp = MagicMock()
+    timeline_resp.status_code = 200
+    timeline_resp.json.return_value = []
+
+    mock_get.side_effect = [issue_resp, timeline_resp]
+
+    results = [_make_result(42)]
+    enriched = enrich_issues(results, "ghp_test")
+
+    assert 42 in enriched
+    assert enriched[42].is_open is True
+    assert enriched[42].comment_count == 5
+    assert enriched[42].assignees == ["alice"]
+    assert enriched[42].has_linked_pr is False
+    assert enriched[42].result is results[0]
+
+
+@patch("app.sources.enrichment.requests.get")
+def test_enrich_detects_linked_pr(mock_get):
+    issue_resp = MagicMock()
+    issue_resp.status_code = 200
+    issue_resp.json.return_value = {
+        "state": "open",
+        "comments": 1,
+        "assignees": [],
+    }
+
+    timeline_resp = MagicMock()
+    timeline_resp.status_code = 200
+    timeline_resp.json.return_value = [
+        {"event": "commented"},
+        {
+            "event": "cross-referenced",
+            "source": {"issue": {"pull_request": {"url": "https://..."}}},
+        },
+    ]
+
+    mock_get.side_effect = [issue_resp, timeline_resp]
+
+    enriched = enrich_issues([_make_result(10)], "ghp_test")
+    assert enriched[10].has_linked_pr is True
+
+
+@patch("app.sources.enrichment.requests.get")
+def test_enrich_closed_issue(mock_get):
+    issue_resp = MagicMock()
+    issue_resp.status_code = 200
+    issue_resp.json.return_value = {
+        "state": "closed",
+        "comments": 3,
+        "assignees": [],
+    }
+
+    timeline_resp = MagicMock()
+    timeline_resp.status_code = 200
+    timeline_resp.json.return_value = []
+
+    mock_get.side_effect = [issue_resp, timeline_resp]
+
+    enriched = enrich_issues([_make_result(7)], "ghp_test")
+    assert enriched[7].is_open is False
+
+
+@patch("app.sources.enrichment.requests.get")
+def test_enrich_fallback_on_api_error(mock_get):
+    error_resp = MagicMock()
+    error_resp.status_code = 403
+    error_resp.text = "Rate limited"
+
+    mock_get.return_value = error_resp
+
+    enriched = enrich_issues([_make_result(99)], "ghp_test")
+    assert 99 in enriched
+    assert enriched[99].is_open is True
+    assert enriched[99].comment_count == 0
+    assert enriched[99].assignees == []
+    assert enriched[99].has_linked_pr is False
+
+
+@patch("app.sources.enrichment.requests.get")
+def test_enrich_deduplicates_by_issue_number(mock_get):
+    issue_resp = MagicMock()
+    issue_resp.status_code = 200
+    issue_resp.json.return_value = {
+        "state": "open",
+        "comments": 2,
+        "assignees": [],
+    }
+
+    timeline_resp = MagicMock()
+    timeline_resp.status_code = 200
+    timeline_resp.json.return_value = []
+
+    mock_get.side_effect = [issue_resp, timeline_resp]
+
+    results = [_make_result(42), _make_result(42)]
+    enriched = enrich_issues(results, "ghp_test")
+
+    assert len(enriched) == 1
+    assert mock_get.call_count == 2  # one issue call + one timeline call
+
+
+@patch("app.sources.enrichment.requests.get")
+def test_enrich_empty_list(mock_get):
+    enriched = enrich_issues([], "ghp_test")
+    assert enriched == {}
+    mock_get.assert_not_called()
+
+
+@patch("app.sources.enrichment.requests.get")
+def test_enrich_sets_auth_header(mock_get):
+    issue_resp = MagicMock()
+    issue_resp.status_code = 200
+    issue_resp.json.return_value = {
+        "state": "open",
+        "comments": 0,
+        "assignees": [],
+    }
+
+    timeline_resp = MagicMock()
+    timeline_resp.status_code = 200
+    timeline_resp.json.return_value = []
+
+    mock_get.side_effect = [issue_resp, timeline_resp]
+
+    enrich_issues([_make_result(1)], "ghp_secret")
+
+    for call in mock_get.call_args_list:
+        headers = call[1].get("headers", {})
+        assert headers["Authorization"] == "token ghp_secret"

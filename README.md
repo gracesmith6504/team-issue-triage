@@ -1,6 +1,6 @@
 # team-issue-triage
 
-Multi-team GitHub issue triage agent for OpenShell. Classifies which of 6 Red Hat teams should own each new issue, rates urgency, sends Slack alerts, and generates a weekly cross-team report.
+Multi-team GitHub issue triage agent for OpenShell. Classifies which of 6 Red Hat teams should own each new issue, rates urgency, sends Slack alerts, and serves a live dashboard with a cross-team bird's eye view report.
 
 ## How It Works
 
@@ -14,6 +14,7 @@ GitHub Issues → Signal Extraction → LLM Classification → Confidence Rules 
 4. **Apply confidence rules** — auto-assign (>0.8), flag multi-team (gap <0.2), flag uncertain (<0.5), force-none override (<0.75)
 5. **Notify** — routes critical/high issues to team Slack channels immediately, medium/low accumulate for daily digest
 6. **Report** — weekly bird's eye view with team breakdown, area heatmap, duplicate detection, and LLM-generated narrative
+7. **Dashboard** — live HTML dashboard served via FastAPI, with status enrichment that re-checks each issue's current GitHub state (open/closed, comments, linked PRs)
 
 ### Teams
 
@@ -42,10 +43,11 @@ GitHub Issues → Signal Extraction → LLM Classification → Confidence Rules 
 | Language | Python 3.12 |
 | LLM | Claude Sonnet via `anthropic[vertex]` SDK |
 | LLM Providers | Vertex AI (default), Anthropic API |
-| Tests | pytest (183 tests) |
+| Web Server | FastAPI + Uvicorn |
+| Tests | pytest (236 tests) |
 | Lint | ruff |
 | Container | Docker (non-root) |
-| Deploy | Kubernetes CronJob + Kustomize |
+| Deploy | Kubernetes Deployment or CronJob + Kustomize |
 
 ## Quick Start
 
@@ -70,7 +72,8 @@ python -m app --mode triage          # Classify new issues
 python -m app --mode digest          # Send daily digest (medium/low)
 python -m app --mode review --team agent-ops --since 48   # Review recent results
 python -m app --mode report          # Generate bird's eye view report
-python -m app --mode report --output report.md            # Write report to file
+python -m app --mode report --output report.html          # Write HTML report to file
+python -m app --mode serve           # Start live dashboard (FastAPI on port 8080)
 ```
 
 ## Configuration
@@ -171,17 +174,24 @@ POTENTIAL DUPLICATES
 
 ## Kubernetes Deployment
 
-The agent runs as CronJobs — hourly triage, daily digest, weekly report:
+Two deployment modes — choose one:
+
+**Dashboard mode** (recommended) — a single Deployment serves the live dashboard and runs triage on a background schedule:
 
 ```bash
-docker build -t your-registry/team-issue-triage:latest .
-docker push your-registry/team-issue-triage:latest
+podman build -t quay.io/your-org/team-issue-triage:latest .
+podman push quay.io/your-org/team-issue-triage:latest
 kubectl apply -k k8s/
 ```
 
+**Batch mode** — CronJobs for hourly triage and daily digest (no web UI). Edit `k8s/kustomization.yaml` to swap which resources are active.
+
 Manifests in `k8s/`:
-- `cronjob-triage.yaml` — runs every hour, classifies new issues
-- `cronjob-digest.yaml` — runs daily at 08:30 UTC, sends medium/low digest
+- `deployment.yaml` — live dashboard Deployment (dashboard mode)
+- `service.yaml` — ClusterIP Service for the dashboard
+- `route.yaml` — OpenShift Route with edge TLS
+- `cronjob-triage.yaml` — hourly triage CronJob (batch mode)
+- `cronjob-digest.yaml` — daily digest CronJob (batch mode)
 - `pvc.yaml` — persistent volume for state and assessment log
 - `configmap.yaml` — non-secret configuration
 - `kustomization.yaml` — ties it all together
@@ -193,8 +203,9 @@ Secrets (`GITHUB_TOKEN`, `SLACK_WEBHOOK_*`, API keys) should be provided via a K
 ```
 team-issue-triage/
 ├── app/
-│   ├── __main__.py          # CLI entry point (--mode triage|digest|review|report)
+│   ├── __main__.py          # CLI entry point (--mode triage|digest|review|report|serve)
 │   ├── config.py            # Env var config loader
+│   ├── server.py            # FastAPI web server with background triage scheduler
 │   ├── triage.py            # Orchestrators: run_triage(), run_digest(), run_review(), run_report()
 │   ├── core/
 │   │   ├── models.py        # TriageResult, Urgency, IssueData, IssueSignals
@@ -206,7 +217,8 @@ team-issue-triage/
 │   │   └── truncation.py    # Body/comment truncation for context limits
 │   ├── sources/
 │   │   ├── source.py        # IssueSource protocol
-│   │   └── github.py        # GitHub API issue fetcher
+│   │   ├── github.py        # GitHub API issue fetcher
+│   │   └── enrichment.py    # Live GitHub status enrichment (open/closed, PRs, comments)
 │   ├── notifications/
 │   │   ├── adapter.py       # NotificationAdapter protocol, config dataclasses
 │   │   ├── router.py        # NotificationRouter (immediate + digest routing)
@@ -220,12 +232,13 @@ team-issue-triage/
 │       ├── birds_eye.py     # Report generator (computes all sections + LLM narrative)
 │       ├── duplicates.py    # Duplicate detector (prefix grouping + token overlap)
 │       └── renderers/
+│           ├── html.py      # Interactive HTML dashboard with Chart.js
 │           └── markdown.py  # Markdown renderer for bird's eye report
 ├── profiles/
 │   ├── openshell.yaml       # Repo config (references teams, thresholds, none_examples)
 │   └── teams/               # 6 team profile YAMLs
 ├── k8s/                     # Kubernetes manifests
-├── tests/                   # 183 tests (unit + integration)
+├── tests/                   # 236 tests (unit + integration)
 ├── Dockerfile               # Non-root container (UID 1001)
 ├── Makefile                 # test, lint, format, build
 ├── requirements.txt
@@ -240,12 +253,13 @@ Hexagonal architecture — pure core logic with pluggable adapters:
 - **Sources** (`app/sources/`) — issue fetchers. Currently GitHub; protocol-based for extensibility.
 - **Notifications** (`app/notifications/`) — adapter protocol with router. Log (stdout) and Slack (webhook). Per-team channel config from YAML.
 - **State** (`app/state/`) — JSON tracker with atomic writes via `os.replace`, JSONL assessment log with period-based queries.
-- **Reports** (`app/reports/`) — bird's eye view generator, duplicate detector, markdown renderer.
+- **Reports** (`app/reports/`) — bird's eye view generator, duplicate detector, HTML dashboard and markdown renderers.
+- **Server** (`app/server.py`) — FastAPI web server with background scheduler. Runs triage hourly, enriches issues with live GitHub state, caches and serves the HTML dashboard.
 
 ## Development
 
 ```bash
-make test      # Run all 183 tests
+make test      # Run all 236 tests
 make lint      # Check with ruff
 make format    # Auto-format with ruff
 make build     # Build Docker image

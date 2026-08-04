@@ -32,7 +32,7 @@ def render_html(report: BirdsEyeReport) -> str:
     if data.get("duplicate_clusters"):
         labels["duplicates"] = "Potential Duplicates"
     data["_labels"] = labels
-    report_json = json.dumps(data, indent=2)
+    report_json = json.dumps(data, indent=2).replace("<", "\\u003c")
     return _HTML_TEMPLATE.replace("__REPORT_JSON__", report_json)
 
 

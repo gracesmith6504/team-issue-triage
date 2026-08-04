@@ -220,3 +220,14 @@ def test_run_triage_dedup_across_runs(config):
         assert isinstance(seen_arg, set)
         for item in seen_arg:
             assert isinstance(item, int)
+
+
+def test_report_format_auto_detection():
+    from app.triage import _detect_format
+
+    assert _detect_format(Path("report.html"), None) == "html"
+    assert _detect_format(Path("report.md"), None) == "markdown"
+    assert _detect_format(Path("report.txt"), None) == "markdown"
+    assert _detect_format(None, None) == "markdown"
+    assert _detect_format(Path("report.html"), "markdown") == "markdown"
+    assert _detect_format(None, "html") == "html"

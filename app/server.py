@@ -182,8 +182,7 @@ def _run_cycle(app: FastAPI) -> None:
 
         from app.reports.renderers.html import render_html
 
-        # NOTE: render_html(report) only — enrichment kwarg added by Task 3
-        app.state.cached_html = render_html(report)
+        app.state.cached_html = render_html(report, enrichment=enrichment)
         app.state.last_triage = now.isoformat()
         app.state.issue_count = len(current)
 

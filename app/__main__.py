@@ -17,6 +17,12 @@ def main():
     parser.add_argument("--since", type=int, default=None)
     parser.add_argument("--team", type=str, default=None)
     parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument(
+        "--format",
+        choices=["markdown", "html"],
+        default=None,
+        dest="report_format",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -31,7 +37,7 @@ def main():
     elif args.mode == "digest":
         run_digest(config)
     elif args.mode == "report":
-        run_report(config, output_path=args.output)
+        run_report(config, output_path=args.output, fmt=args.report_format)
     else:
         run_triage(config)
 

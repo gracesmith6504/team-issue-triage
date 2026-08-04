@@ -163,7 +163,20 @@ def run_digest(config: TriageConfig) -> None:
     tracker.save(state)
 
 
-def run_report(config: TriageConfig, *, output_path: Path | None = None) -> None:
+def _detect_format(output_path: Path | None, explicit_format: str | None) -> str:
+    if explicit_format:
+        return explicit_format
+    if output_path and output_path.suffix == ".html":
+        return "html"
+    return "markdown"
+
+
+def run_report(
+    config: TriageConfig,
+    *,
+    output_path: Path | None = None,
+    fmt: str | None = None,
+) -> None:
     repo_config = load_repo_config("openshell", profiles_dir=config.profiles_dir)
     reporting = repo_config.reporting
 
@@ -207,12 +220,25 @@ def run_report(config: TriageConfig, *, output_path: Path | None = None) -> None
     )
     report = generator.generate()
 
-    md = render_markdown(report)
-
     dest = output_path or config.report_output_path
+    resolved_fmt = _detect_format(dest, fmt)
+
+    if resolved_fmt == "html":
+        from app.reports.renderers.html import render_html
+
+        output = render_html(report)
+    else:
+        output = render_markdown(report)
+
     if dest:
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(md)
+        dest.write_text(output)
         logger.info(f"Report written to {dest}")
+
+        # Write dated archive copy
+        date_str = now.strftime("%Y-%m-%d")
+        archive = dest.parent / f"{dest.stem}-{date_str}{dest.suffix}"
+        archive.write_text(output)
+        logger.info(f"Archive copy written to {archive}")
     else:
-        print(md)
+        print(output)

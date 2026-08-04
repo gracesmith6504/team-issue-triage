@@ -78,9 +78,9 @@ Each card: large number (32px bold), label below (14px muted), colored left bord
 
 `report.narrative` rendered as a styled blockquote. Italic text, left border accent, slightly smaller font (14px). Attribution line: "— AI-generated summary" in muted grey.
 
-### 4. Action Required Section
+### 4. Action Required Section (conditionally rendered)
 
-Heading: "Action Required ({count})" where count = `len(report.critical_list)`.
+Only rendered if `len(report.critical_list) > 0`. Heading: "Action Required ({count})".
 
 Issue cards for each item in `report.critical_list`, sorted critical first then high. Each card:
 
@@ -112,15 +112,18 @@ If a `secondary_team` exists with `secondary_confidence`, show it as a subtle ta
 - Click: filters the "All Issues" section below to that team. Click again to clear.
 - Datalabels plugin: show team name and count on each segment if count > 0
 
-**Right column: Needs Triage**
+**Right column: Needs Triage (conditionally rendered)**
+
+Only rendered if `len(report.no_team_list) > 0`.
 
 - Heading: "Needs Triage ({count})" where count = `len(report.no_team_list)`
 - Compact issue cards for `report.no_team_list` — same format as Action Required cards but with an orange "unassigned" tag instead of a team name
 - These are highlighted because they represent gaps in team coverage
+- If no_team_list is empty, the doughnut chart expands to full width
 
-### 6. Duplicate Clusters Section
+### 6. Duplicate Clusters Section (conditionally rendered)
 
-Heading: "Potential Duplicates ({count} clusters)"
+Only rendered if `len(report.duplicate_clusters) > 0`. Heading: "Potential Duplicates ({count} clusters)"
 
 For each `DuplicateCluster` in `report.duplicate_clusters`:
 
@@ -249,6 +252,26 @@ Create `tests/reports/test_html_renderer.py`:
 9. `test_render_html_format_auto_detection` — `.html` extension triggers HTML renderer
 
 Tests reuse the `_make_result()` and `_make_report()` helpers from `tests/reports/test_markdown_renderer.py` (extract to a shared `conftest.py` fixture).
+
+## Output File Strategy
+
+When `--output` is a path like `data/report.html`, `run_report()` writes two files:
+
+1. **`data/report.html`** — the file at the exact path specified. Overwritten each run. This is the "latest" that Dimitri bookmarks.
+2. **`data/report-2026-08-04.html`** — a dated archive copy in the same directory. Never overwritten. Keeps history.
+
+The dated filename is derived from `report.generated_at`. If the dated file already exists (multiple runs same day), it is overwritten — one archive per day is enough.
+
+## Conditional Section Rendering
+
+Sections with no data are hidden entirely — no empty headings or blank areas:
+
+- **Action Required**: hidden if `len(report.critical_list) == 0`
+- **Needs Triage**: hidden if `len(report.no_team_list) == 0` (doughnut chart goes full width)
+- **Duplicate Clusters**: hidden if `len(report.duplicate_clusters) == 0`
+- **Narrative**: hidden if `report.narrative` is empty string
+
+KPI cards, Team Breakdown doughnut, and All Issues table are always shown.
 
 ## What This Spec Does NOT Cover
 

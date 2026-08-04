@@ -62,6 +62,11 @@ class BirdsEyeReportGenerator:
         )
         generated_at = datetime.now(timezone.utc).isoformat()
 
+        all_issues = sorted(
+            self._current,
+            key=lambda r: (_URGENCY_SORT.get(r.urgency.value, 99), r.issue_number),
+        )
+
         return BirdsEyeReport(
             summary=summary,
             critical_list=critical_list,
@@ -69,6 +74,7 @@ class BirdsEyeReportGenerator:
             area_heatmap=area_heatmap,
             duplicate_clusters=duplicate_clusters,
             no_team_list=no_team_list,
+            all_issues=all_issues,
             narrative=narrative,
             generated_at=generated_at,
         )

@@ -44,5 +44,6 @@ class BirdsEyeReport:
     area_heatmap: dict[str, AreaTrend]
     duplicate_clusters: list[DuplicateCluster]
     no_team_list: list[TriageResult]
+    all_issues: list[TriageResult]
     narrative: str
     generated_at: str

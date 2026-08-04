@@ -10,7 +10,7 @@ def main():
     parser = argparse.ArgumentParser(description="Team issue triage agent")
     parser.add_argument(
         "--mode",
-        choices=["triage", "digest", "review", "report"],
+        choices=["triage", "digest", "review", "report", "serve"],
         default="triage",
     )
     parser.add_argument("--verbose", "-v", action="store_true")
@@ -38,6 +38,10 @@ def main():
         run_digest(config)
     elif args.mode == "report":
         run_report(config, output_path=args.output, fmt=args.report_format)
+    elif args.mode == "serve":
+        from app.server import start_server
+
+        start_server(config)
     else:
         run_triage(config)
 

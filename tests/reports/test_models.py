@@ -46,6 +46,7 @@ def test_birds_eye_report_creation():
         area_heatmap={},
         duplicate_clusters=[],
         no_team_list=[],
+        all_issues=[],
         narrative="No issues.",
         generated_at="2026-08-04T00:00:00+00:00",
     )

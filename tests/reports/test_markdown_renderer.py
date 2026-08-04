@@ -57,6 +57,7 @@ def _make_report(**overrides):
         },
         duplicate_clusters=[],
         no_team_list=[],
+        all_issues=[_make_result(1, "critical issue", urgency=Urgency.CRITICAL)],
         narrative="Gateway saw unusual activity this week.",
         generated_at="2026-08-04T00:00:00+00:00",
     )
@@ -121,6 +122,7 @@ def test_render_empty_report():
         area_heatmap={},
         duplicate_clusters=[],
         no_team_list=[],
+        all_issues=[],
         narrative="No issues.",
         generated_at="2026-08-04T00:00:00+00:00",
     )

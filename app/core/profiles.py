@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
@@ -11,61 +11,97 @@ PROFILES_DIR = Path(__file__).parent.parent.parent / "profiles"
 
 @dataclass
 class TeamProfile:
-    name: str
-    repos: list[str]
+    team_id: str
     team_name: str
-    team_context: str = ""
-    pinned_version: str = ""
-    urgency_rules: str = ""
-    work_status_guidance: str = ""
-    calibration_examples: list[dict] = field(default_factory=list)
-    verdict_thresholds: dict[str, int] | None = None
+    description: str
+    areas: dict[str, list[str]]
+    urgency_overrides: dict[str, list[str]]
+    examples: list[dict]
+    notifications: dict
 
 
-def load_profile(name: str, profiles_dir: Path | None = None) -> TeamProfile:
-    directory = profiles_dir or PROFILES_DIR
-    stem = name.removesuffix(".yaml").removesuffix(".yml")
-    path = directory / f"{stem}.yaml"
-    if not path.exists():
-        path = directory / f"{stem}.yml"
-    if not path.exists():
-        raise FileNotFoundError(f"Profile not found: {stem}")
+@dataclass
+class RepoConfig:
+    repo: str
+    pinned_version: str
+    team_profiles: list[TeamProfile]
+    no_team_prefixes: list[str]
+    none_examples: list[dict]
+    confidence_thresholds: dict[str, float]
+    reporting: dict
 
+
+def _load_team_profile(path: Path) -> TeamProfile:
     with open(path) as f:
         data = yaml.safe_load(f)
-
-    if not data or not isinstance(data, dict):
-        raise ValueError(f"Profile {stem} is empty or not a mapping")
-    if "repos" not in data or not data["repos"]:
-        raise ValueError(f"Profile {stem} must have a non-empty 'repos' list")
-
     return TeamProfile(
-        name=stem,
-        repos=data["repos"],
-        team_name=data.get("team_name", ""),
-        team_context=data.get("team_context", ""),
-        pinned_version=data.get("pinned_version", ""),
-        urgency_rules=data.get("urgency_rules", ""),
-        work_status_guidance=data.get("work_status_guidance", ""),
-        calibration_examples=data.get("calibration_examples", []),
-        verdict_thresholds=data.get("verdict_thresholds"),
+        team_id=data["team_id"],
+        team_name=data["team_name"],
+        description=data.get("description", ""),
+        areas=data.get("areas", {"primary": [], "secondary": []}),
+        urgency_overrides=data.get("urgency_overrides", {}),
+        examples=data.get("examples", []),
+        notifications=data.get("notifications", {}),
     )
 
 
-def find_profile_for_repo(
-    repo: str, profiles_dir: Path | None = None
-) -> TeamProfile | None:
-    directory = profiles_dir or PROFILES_DIR
-    if not directory.exists():
-        return None
+def _validate_profiles(
+    profiles: list[TeamProfile], no_team_prefixes: list[str]
+) -> None:
+    team_ids = [p.team_id for p in profiles]
+    duplicates = [tid for tid in team_ids if team_ids.count(tid) > 1]
+    if duplicates:
+        raise ValueError(
+            f"team_id '{duplicates[0]}' is duplicate — each team_id must be unique"
+        )
 
-    repo_lower = repo.lower()
-    for path in sorted(directory.glob("*.yaml")) + sorted(directory.glob("*.yml")):
-        try:
-            profile = load_profile(path.stem, profiles_dir=directory)
-            if any(r.lower() == repo_lower for r in profile.repos):
-                return profile
-        except (ValueError, yaml.YAMLError) as e:
-            logger.warning(f"Skipping malformed profile {path.name}: {e}")
+    primary_owners: dict[str, str] = {}
+    for profile in profiles:
+        for prefix in profile.areas.get("primary", []):
+            if prefix in primary_owners:
+                raise ValueError(
+                    f"Prefix '{prefix}' listed as primary by both "
+                    f"'{primary_owners[prefix]}' and '{profile.team_id}'"
+                )
+            primary_owners[prefix] = profile.team_id
 
-    return None
+    no_team_set = set(no_team_prefixes)
+    for profile in profiles:
+        for prefix in profile.areas.get("primary", []) + profile.areas.get(
+            "secondary", []
+        ):
+            if prefix in no_team_set:
+                raise ValueError(
+                    f"Prefix '{prefix}' is in no_team_prefixes but also "
+                    f"appears in '{profile.team_id}' areas"
+                )
+
+
+def load_repo_config(name: str, profiles_dir: Path | None = None) -> RepoConfig:
+    base = profiles_dir or PROFILES_DIR
+    config_path = base / f"{name}.yaml"
+    if not config_path.exists():
+        raise FileNotFoundError(f"Repo config not found: {config_path}")
+
+    with open(config_path) as f:
+        data = yaml.safe_load(f)
+
+    profiles = []
+    for team_path_str in data["team_profiles"]:
+        team_path = base / team_path_str
+        if not team_path.exists():
+            raise FileNotFoundError(f"Team profile not found: {team_path}")
+        profiles.append(_load_team_profile(team_path))
+
+    no_team_prefixes = data.get("no_team_prefixes", [])
+    _validate_profiles(profiles, no_team_prefixes)
+
+    return RepoConfig(
+        repo=data["repo"],
+        pinned_version=data.get("pinned_version", ""),
+        team_profiles=profiles,
+        no_team_prefixes=no_team_prefixes,
+        none_examples=data.get("none_examples", []),
+        confidence_thresholds=data.get("confidence_thresholds", {}),
+        reporting=data.get("reporting", {}),
+    )

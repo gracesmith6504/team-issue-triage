@@ -20,7 +20,8 @@ class StateTracker:
         try:
             with open(self._path) as f:
                 raw = json.load(f)
-            raw["seen_issues"] = set(raw.get("seen_issues", []))
+            seen_list = raw.get("seen_issues", [])
+            raw["seen_issues"] = set(str(x) for x in seen_list)
             return raw
         except (json.JSONDecodeError, KeyError) as e:
             logger.warning(f"Corrupted state file, using defaults: {e}")
@@ -30,7 +31,7 @@ class StateTracker:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         serializable = {
             **state,
-            "seen_issues": sorted(state.get("seen_issues", set())),
+            "seen_issues": sorted(str(x) for x in state.get("seen_issues", set())),
         }
         tmp = self._path.with_suffix(".tmp")
         with open(tmp, "w") as f:
@@ -56,15 +57,16 @@ class StateTracker:
         kept = set()
         kept_timestamps = {}
         for issue_id in state["seen_issues"]:
-            ts_str = timestamps.get(str(issue_id))
+            key = str(issue_id)
+            ts_str = timestamps.get(key)
             if ts_str:
                 ts = datetime.fromisoformat(ts_str)
                 if ts > cutoff:
-                    kept.add(issue_id)
-                    kept_timestamps[str(issue_id)] = ts_str
+                    kept.add(key)
+                    kept_timestamps[key] = ts_str
             else:
-                kept.add(issue_id)
-                kept_timestamps[str(issue_id)] = now.isoformat()
+                kept.add(key)
+                kept_timestamps[key] = now.isoformat()
 
         pruned_count = len(state["seen_issues"]) - len(kept)
         if pruned_count > 0:

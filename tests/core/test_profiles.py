@@ -1,84 +1,147 @@
 import pytest
 import yaml
 
-from app.core.profiles import find_profile_for_repo, load_profile
+from app.core.profiles import load_repo_config
 
 
 @pytest.fixture()
 def profiles_dir(tmp_path):
-    profile = {
-        "repos": ["NVIDIA/OpenShell"],
-        "team_name": "Agent Ops",
-        "team_context": "The team works on OpenShift integration.",
-        "pinned_version": "v0.0.85",
-        "urgency_rules": "Release blockers are urgency 5.",
-        "calibration_examples": [
+    teams_dir = tmp_path / "teams"
+    teams_dir.mkdir()
+
+    team_a = {
+        "team_id": "team-a",
+        "team_name": "Team A",
+        "description": "Team A does stuff",
+        "areas": {"primary": ["cli", "sdk"], "secondary": ["gateway"]},
+        "urgency_overrides": {"critical": ["SDK sync failures"]},
+        "examples": [
             {
-                "summary": "protobuf sync failed",
-                "scores": "Relevance=5 Urgency=5 Action=4",
-                "verdict": "ESCALATE",
-                "reason": "Release blocker",
+                "title": "SDK sync failed",
+                "urgency": "critical",
+                "reasoning": "Blocks release",
             }
         ],
+        "notifications": {
+            "receive_secondary": True,
+            "secondary_min_urgency": "high",
+            "channels": [],
+        },
     }
-    (tmp_path / "openshell.yaml").write_text(yaml.dump(profile))
+    team_b = {
+        "team_id": "team-b",
+        "team_name": "Team B",
+        "description": "Team B does other stuff",
+        "areas": {"primary": ["gateway"], "secondary": []},
+        "urgency_overrides": {},
+        "examples": [],
+        "notifications": {"receive_secondary": False, "channels": []},
+    }
+
+    (teams_dir / "team-a.yaml").write_text(yaml.dump(team_a))
+    (teams_dir / "team-b.yaml").write_text(yaml.dump(team_b))
+
+    repo_config = {
+        "repo": "NVIDIA/OpenShell",
+        "pinned_version": "v0.0.92",
+        "team_profiles": ["teams/team-a.yaml", "teams/team-b.yaml"],
+        "no_team_prefixes": ["build", "tui"],
+        "none_examples": [
+            {
+                "title": "feat(build): evaluate Bazel",
+                "reasoning": "No team owns builds",
+            },
+        ],
+        "confidence_thresholds": {
+            "auto_assign": 0.8,
+            "multi_team_gap": 0.2,
+            "uncertain": 0.5,
+            "none_min": 0.75,
+        },
+        "reporting": {"period": "weekly", "period_start": "monday", "timezone": "UTC"},
+    }
+    (tmp_path / "test-repo.yaml").write_text(yaml.dump(repo_config))
     return tmp_path
 
 
-def test_load_profile(profiles_dir):
-    profile = load_profile("openshell", profiles_dir=profiles_dir)
-    assert profile.name == "openshell"
-    assert profile.repos == ["NVIDIA/OpenShell"]
-    assert profile.team_name == "Agent Ops"
-    assert profile.pinned_version == "v0.0.85"
-    assert len(profile.calibration_examples) == 1
-    assert profile.calibration_examples[0]["verdict"] == "ESCALATE"
+def test_load_repo_config(profiles_dir):
+    config = load_repo_config("test-repo", profiles_dir=profiles_dir)
+    assert config.repo == "NVIDIA/OpenShell"
+    assert config.pinned_version == "v0.0.92"
+    assert len(config.team_profiles) == 2
+    assert config.team_profiles[0].team_id == "team-a"
+    assert config.team_profiles[1].team_id == "team-b"
+    assert config.no_team_prefixes == ["build", "tui"]
+    assert config.confidence_thresholds["none_min"] == 0.75
+    assert len(config.none_examples) == 1
 
 
-def test_load_profile_not_found(tmp_path):
-    with pytest.raises(FileNotFoundError, match="Profile not found"):
-        load_profile("nonexistent", profiles_dir=tmp_path)
+def test_load_repo_config_team_fields(profiles_dir):
+    config = load_repo_config("test-repo", profiles_dir=profiles_dir)
+    team_a = config.team_profiles[0]
+    assert team_a.team_name == "Team A"
+    assert team_a.description == "Team A does stuff"
+    assert team_a.areas["primary"] == ["cli", "sdk"]
+    assert team_a.areas["secondary"] == ["gateway"]
+    assert len(team_a.examples) == 1
+    assert team_a.notifications["receive_secondary"] is True
 
 
-def test_load_profile_empty(tmp_path):
-    (tmp_path / "empty.yaml").write_text("")
-    with pytest.raises(ValueError, match="empty or not a mapping"):
-        load_profile("empty", profiles_dir=tmp_path)
+def test_load_repo_config_not_found(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        load_repo_config("nonexistent", profiles_dir=tmp_path)
 
 
-def test_load_profile_missing_repos(tmp_path):
-    (tmp_path / "bad.yaml").write_text(yaml.dump({"team_name": "Test"}))
-    with pytest.raises(ValueError, match="non-empty 'repos'"):
-        load_profile("bad", profiles_dir=tmp_path)
+def test_load_repo_config_missing_team_file(profiles_dir):
+    repo_yaml = profiles_dir / "test-repo.yaml"
+    data = yaml.safe_load(repo_yaml.read_text())
+    data["team_profiles"].append("teams/missing.yaml")
+    repo_yaml.write_text(yaml.dump(data))
+    with pytest.raises(FileNotFoundError):
+        load_repo_config("test-repo", profiles_dir=profiles_dir)
 
 
-def test_find_profile_for_repo(profiles_dir):
-    profile = find_profile_for_repo("NVIDIA/OpenShell", profiles_dir=profiles_dir)
-    assert profile is not None
-    assert profile.name == "openshell"
+def test_validation_primary_uniqueness(profiles_dir):
+    team_b_path = profiles_dir / "teams" / "team-b.yaml"
+    team_b = yaml.safe_load(team_b_path.read_text())
+    team_b["areas"]["primary"] = ["cli"]  # conflict: team-a also has cli as primary
+    team_b_path.write_text(yaml.dump(team_b))
+    with pytest.raises(ValueError, match="cli.*primary"):
+        load_repo_config("test-repo", profiles_dir=profiles_dir)
 
 
-def test_find_profile_for_repo_case_insensitive(profiles_dir):
-    profile = find_profile_for_repo("nvidia/openshell", profiles_dir=profiles_dir)
-    assert profile is not None
+def test_validation_no_team_overlap(profiles_dir):
+    team_a_path = profiles_dir / "teams" / "team-a.yaml"
+    team_a = yaml.safe_load(team_a_path.read_text())
+    team_a["areas"]["primary"].append("build")  # conflict: build is in no_team_prefixes
+    team_a_path.write_text(yaml.dump(team_a))
+    with pytest.raises(ValueError, match="build.*no_team_prefixes"):
+        load_repo_config("test-repo", profiles_dir=profiles_dir)
 
 
-def test_find_profile_for_repo_not_found(profiles_dir):
-    profile = find_profile_for_repo("other/repo", profiles_dir=profiles_dir)
-    assert profile is None
+def test_validation_team_id_uniqueness(profiles_dir):
+    team_b_path = profiles_dir / "teams" / "team-b.yaml"
+    team_b = yaml.safe_load(team_b_path.read_text())
+    team_b["team_id"] = "team-a"  # duplicate
+    team_b_path.write_text(yaml.dump(team_b))
+    with pytest.raises(ValueError, match="team-a.*duplicate"):
+        load_repo_config("test-repo", profiles_dir=profiles_dir)
 
 
-def test_find_profile_for_repo_no_dir(tmp_path):
-    profile = find_profile_for_repo("any/repo", profiles_dir=tmp_path / "nope")
-    assert profile is None
+def test_secondary_can_overlap(profiles_dir):
+    """Multiple teams listing the same prefix as secondary is allowed."""
+    team_b_path = profiles_dir / "teams" / "team-b.yaml"
+    team_b = yaml.safe_load(team_b_path.read_text())
+    team_b["areas"]["secondary"] = [
+        "cli"
+    ]  # team-a has cli as primary, team-b as secondary — OK
+    team_b_path.write_text(yaml.dump(team_b))
+    config = load_repo_config("test-repo", profiles_dir=profiles_dir)
+    assert len(config.team_profiles) == 2
 
 
-def test_load_profile_defaults(tmp_path):
-    minimal = {"repos": ["org/repo"], "team_name": "Test"}
-    (tmp_path / "minimal.yaml").write_text(yaml.dump(minimal))
-    profile = load_profile("minimal", profiles_dir=tmp_path)
-    assert profile.team_context == ""
-    assert profile.pinned_version == ""
-    assert profile.urgency_rules == ""
-    assert profile.calibration_examples == []
-    assert profile.verdict_thresholds is None
+def test_load_real_profiles():
+    """Smoke test: the actual profiles/ directory loads without errors."""
+    config = load_repo_config("openshell")
+    assert config.repo == "NVIDIA/OpenShell"
+    assert len(config.team_profiles) == 6

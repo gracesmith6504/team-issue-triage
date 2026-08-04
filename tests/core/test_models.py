@@ -1,134 +1,103 @@
-from app.core.models import (
-    Assessment,
-    DigestEntry,
-    IssueData,
-    Verdict,
-    DIGEST_MAX_ITEMS,
-)
+# tests/core/test_models.py
+from app.core.models import IssueData, IssueSignals, TriageResult, Urgency
 
 
-def test_verdict_values():
-    assert Verdict.ESCALATE == "ESCALATE"
-    assert Verdict.TRACK == "TRACK"
-    assert Verdict.WATCH == "WATCH"
-    assert Verdict.SKIP == "SKIP"
+def test_urgency_values():
+    assert Urgency.CRITICAL == "critical"
+    assert Urgency.HIGH == "high"
+    assert Urgency.MEDIUM == "medium"
+    assert Urgency.LOW == "low"
 
 
-def test_verdict_ordering():
-    ordered = [Verdict.ESCALATE, Verdict.TRACK, Verdict.WATCH, Verdict.SKIP]
-    assert len(ordered) == 4
+def test_urgency_ordering():
+    ordered = [Urgency.CRITICAL, Urgency.HIGH, Urgency.MEDIUM, Urgency.LOW]
+    assert [u.value for u in ordered] == ["critical", "high", "medium", "low"]
 
 
 def test_issue_data_creation():
     issue = IssueData(
         repo="NVIDIA/OpenShell",
-        number=2401,
-        title="protobuf sync failed",
-        body="The sync job failed with error...",
-        labels=["kind/bug", "priority/critical"],
-        comments=[{"user": "bot", "body": "Auto-created by sync action"}],
-        url="https://github.com/NVIDIA/OpenShell/issues/2401",
-        created_at="2026-07-23T14:00:00Z",
+        number=2571,
+        title="bug(supervisor): SPIFFE crash",
+        body="SPIFFE sandboxes crash on restart",
+        labels=["area:supervisor", "topic:security"],
+        comments=[],
+        url="https://github.com/NVIDIA/OpenShell/issues/2571",
+        created_at="2026-08-01T00:00:00Z",
     )
+    assert issue.number == 2571
     assert issue.repo == "NVIDIA/OpenShell"
-    assert issue.number == 2401
-    assert len(issue.labels) == 2
-    assert len(issue.comments) == 1
 
 
-def test_assessment_creation():
-    assessment = Assessment(
+def test_triage_result_creation():
+    result = TriageResult(
         repo="NVIDIA/OpenShell",
-        issue_number=2401,
-        issue_title="protobuf sync failed",
-        issue_url="https://github.com/NVIDIA/OpenShell/issues/2401",
-        relevance=5,
-        relevance_reason="Go SDK sync is team-owned",
-        urgency=5,
-        urgency_reason="Blocks releases",
-        action_clarity=4,
-        action_clarity_reason="Re-run sync after fixing protos",
-        total=14,
-        verdict=Verdict.ESCALATE,
-        override_applied=None,
-        summary="SDK sync failure blocks release",
-        recommendation="Fix proto definitions and re-run sync",
-        assessed_at="2026-07-23T14:05:00Z",
+        issue_number=2571,
+        issue_title="bug(supervisor): SPIFFE crash",
+        issue_url="https://github.com/NVIDIA/OpenShell/issues/2571",
+        reasoning="SPIFFE in title indicates security",
+        any_team_cares=True,
+        primary_team="ai-safety",
+        primary_confidence=0.85,
+        secondary_team="agent-ops",
+        secondary_confidence=0.65,
+        urgency=Urgency.HIGH,
+        urgency_reasoning="Security crash is a regression",
+        summary="SPIFFE sandboxes crash on restart",
+        recommendation="Investigate SPIFFE lifecycle",
+        confidence_flag=None,
+        assessed_at="2026-08-01T00:00:00Z",
     )
-    assert assessment.verdict == Verdict.ESCALATE
-    assert assessment.total == 14
-    assert assessment.override_applied is None
+    assert result.primary_team == "ai-safety"
+    assert result.urgency == Urgency.HIGH
+    assert result.urgency.value == "high"
+    assert result.secondary_team == "agent-ops"
 
 
-def test_digest_entry_creation():
-    entry = DigestEntry(
-        issue_number=2399,
-        title="Helm values missing tolerations",
+def test_triage_result_no_team():
+    result = TriageResult(
         repo="NVIDIA/OpenShell",
-        relevance=4,
-        urgency=2,
-        action_clarity=5,
-        verdict="TRACK",
-        reason="OpenShift deployment gap",
-        url="https://github.com/NVIDIA/OpenShell/issues/2399",
-        assessed_at="2026-07-23T13:05:00Z",
+        issue_number=2491,
+        issue_title="feat(build): evaluate Bazel",
+        issue_url="https://github.com/NVIDIA/OpenShell/issues/2491",
+        reasoning="Build system, no Red Hat team",
+        any_team_cares=False,
+        primary_team="none",
+        primary_confidence=0.9,
+        secondary_team=None,
+        secondary_confidence=None,
+        urgency=Urgency.LOW,
+        urgency_reasoning="Design discussion",
+        summary="Evaluate Bazel for builds",
+        recommendation="No action needed",
+        confidence_flag=None,
+        assessed_at="2026-08-01T00:00:00Z",
     )
-    assert entry.verdict == "TRACK"
-    assert entry.relevance == 4
+    assert result.any_team_cares is False
+    assert result.primary_team == "none"
+    assert result.secondary_team is None
+    assert result.secondary_confidence is None
 
 
-def test_digest_entry_to_dict():
-    entry = DigestEntry(
-        issue_number=2399,
-        title="Helm values missing tolerations",
-        repo="NVIDIA/OpenShell",
-        relevance=4,
-        urgency=2,
-        action_clarity=5,
-        verdict="TRACK",
-        reason="OpenShift deployment gap",
-        url="https://github.com/NVIDIA/OpenShell/issues/2399",
-        assessed_at="2026-07-23T13:05:00Z",
+def test_issue_signals_creation():
+    signals = IssueSignals(
+        title_prefix="supervisor",
+        area_labels=["area:supervisor"],
+        topic_labels=["topic:security"],
+        state_label="state:triage-needed",
+        issue_type="Bug",
     )
-    d = entry.to_dict()
-    assert d["issue_number"] == 2399
-    assert d["verdict"] == "TRACK"
-    assert len(d) == 10
+    assert signals.title_prefix == "supervisor"
+    assert signals.area_labels == ["area:supervisor"]
 
 
-def test_digest_entry_from_dict():
-    data = {
-        "issue_number": 2399,
-        "title": "Helm values missing tolerations",
-        "repo": "NVIDIA/OpenShell",
-        "relevance": 4,
-        "urgency": 2,
-        "action_clarity": 5,
-        "verdict": "TRACK",
-        "reason": "OpenShift deployment gap",
-        "url": "https://github.com/NVIDIA/OpenShell/issues/2399",
-        "assessed_at": "2026-07-23T13:05:00Z",
-    }
-    entry = DigestEntry.from_dict(data)
-    assert entry.issue_number == 2399
-    assert entry.verdict == "TRACK"
-
-
-def test_digest_entry_roundtrip():
-    entry = DigestEntry(
-        issue_number=100,
-        title="Test",
-        repo="org/repo",
-        relevance=3,
-        urgency=3,
-        action_clarity=3,
-        verdict="WATCH",
-        reason="test",
-        url="https://example.com/100",
-        assessed_at="2026-07-23T12:00:00Z",
+def test_issue_signals_no_prefix():
+    signals = IssueSignals(
+        title_prefix=None,
+        area_labels=[],
+        topic_labels=[],
+        state_label=None,
+        issue_type=None,
     )
-    assert DigestEntry.from_dict(entry.to_dict()) == entry
-
-
-def test_digest_max_items_constant():
-    assert DIGEST_MAX_ITEMS == 10
+    assert signals.title_prefix is None
+    assert signals.area_labels == []

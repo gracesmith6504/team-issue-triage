@@ -225,8 +225,15 @@ def run_report(
 
     if resolved_fmt == "html":
         from app.reports.renderers.html import render_html
+        from app.sources.enrichment import enrich_issues
 
-        output = render_html(report)
+        enrichment = {}
+        try:
+            enrichment = enrich_issues(current, config.github_token)
+        except Exception:
+            logger.exception("Enrichment failed, rendering without enrichment")
+
+        output = render_html(report, enrichment=enrichment)
     else:
         output = render_markdown(report)
 

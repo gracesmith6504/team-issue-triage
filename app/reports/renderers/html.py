@@ -46,18 +46,12 @@ def _apply_enrichment(data: dict, enrichment: dict) -> None:
         for issue in data.get(issue_list_key, []):
             enr = enrichment.get(issue["issue_number"])
             if enr:
-                issue["is_open"] = enr.is_open
-                issue["comment_count"] = enr.comment_count
-                issue["assignees"] = enr.assignees
                 issue["has_linked_pr"] = enr.has_linked_pr
 
     for cluster in data.get("duplicate_clusters", []):
         for issue in cluster.get("issues", []):
             enr = enrichment.get(issue["issue_number"])
             if enr:
-                issue["is_open"] = enr.is_open
-                issue["comment_count"] = enr.comment_count
-                issue["assignees"] = enr.assignees
                 issue["has_linked_pr"] = enr.has_linked_pr
 
 
@@ -566,6 +560,69 @@ body {
   color: #22C55E;
 }
 
+.maintainer-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(99, 102, 241, 0.15);
+  color: #818CF8;
+}
+
+.date-filter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.date-filter label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.date-filter input[type="date"] {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.date-filter input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+}
+
+.date-filter-btn {
+  background: var(--accent);
+  border: none;
+  color: var(--text-primary);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+
+.date-filter-btn:hover {
+  background: #4F46E5;
+}
+
+.date-filter-btn.secondary {
+  background: rgba(99, 102, 241, 0.3);
+}
+
+.date-filter-btn.secondary:hover {
+  background: rgba(99, 102, 241, 0.5);
+}
+
 .comment-count {
   display: inline-flex;
   align-items: center;
@@ -763,20 +820,18 @@ const REPORT_DATA = __REPORT_JSON__;
     return badge;
   }
 
-  function makeEnrichmentBadges(issue) {
+  var MAINTAINER_ASSOCIATIONS = {"MEMBER": true, "COLLABORATOR": true};
+
+  function makeStatusBadges(issue) {
     var container = makeEl("span");
     container.style.display = "inline-flex";
     container.style.gap = "6px";
     container.style.alignItems = "center";
-    if (issue.is_open === false) {
-      container.appendChild(makeEl("span", "closed-badge", "Closed"));
+    if (MAINTAINER_ASSOCIATIONS[issue.author_association]) {
+      container.appendChild(makeEl("span", "maintainer-badge", "MAINTAINER"));
     }
     if (issue.has_linked_pr) {
       container.appendChild(makeEl("span", "pr-badge", "PR"));
-    }
-    if (issue.comment_count > 0) {
-      container.appendChild(makeEl("span", "comment-count",
-        "\\u{1F4AC} " + issue.comment_count));
     }
     return container;
   }
@@ -860,7 +915,7 @@ const REPORT_DATA = __REPORT_JSON__;
           confidenceLabel(issue.primary_confidence) + " confidence"));
         link.appendChild(meta);
 
-        var enrichBadges = makeEnrichmentBadges(issue);
+        var enrichBadges = makeStatusBadges(issue);
         if (enrichBadges.childNodes.length > 0) {
           var enrichRow = makeEl("div", "issue-meta");
           enrichRow.appendChild(enrichBadges);
@@ -1082,6 +1137,25 @@ const REPORT_DATA = __REPORT_JSON__;
       'All Issues <span class="count">(' +
       allIssues.length + ')</span>'));
 
+    var dateFilter = makeEl("div", "date-filter");
+    dateFilter.appendChild(makeEl("label", null, "From:"));
+    var dateFrom = document.createElement("input");
+    dateFrom.type = "date";
+    dateFrom.id = "dateFrom";
+    dateFilter.appendChild(dateFrom);
+    dateFilter.appendChild(makeEl("label", null, "To:"));
+    var dateTo = document.createElement("input");
+    dateTo.type = "date";
+    dateTo.id = "dateTo";
+    dateFilter.appendChild(dateTo);
+    var applyDateBtn = makeEl("button", "date-filter-btn", "Filter");
+    applyDateBtn.onclick = function() { applyDateFilter(); };
+    dateFilter.appendChild(applyDateBtn);
+    var clearDateBtn = makeEl("button", "date-filter-btn secondary", "Clear");
+    clearDateBtn.onclick = function() { clearDateFilter(); };
+    dateFilter.appendChild(clearDateBtn);
+    app.appendChild(dateFilter);
+
     var filterBar = makeEl("div", "filter-bar");
     filterBar.id = "filterBar";
     app.appendChild(filterBar);
@@ -1106,6 +1180,7 @@ const REPORT_DATA = __REPORT_JSON__;
       row.target = "_blank";
       row.rel = "noopener noreferrer";
       row.dataset.team = issue.primary_team;
+      row.dataset.date = (issue.assessed_at || "").substring(0, 10);
 
       var badgeCell = makeEl("span");
       badgeCell.appendChild(makeUrgencyBadge(issue.urgency));
@@ -1124,7 +1199,7 @@ const REPORT_DATA = __REPORT_JSON__;
         confidenceLabel(issue.primary_confidence)));
 
       var statusCell = makeEl("span", "hide-mobile");
-      statusCell.appendChild(makeEnrichmentBadges(issue));
+      statusCell.appendChild(makeStatusBadges(issue));
       row.appendChild(statusCell);
 
       var flagCell = makeEl("span", "hide-mobile");
@@ -1172,6 +1247,50 @@ const REPORT_DATA = __REPORT_JSON__;
       } else {
         bar.style.display = "none";
       }
+    }
+
+    // --- Date filter logic ---
+    function applyDateFilter() {
+      var from = document.getElementById("dateFrom").value;
+      var to = document.getElementById("dateTo").value;
+      var rows = document.querySelectorAll(".table-row");
+      var shown = 0;
+
+      rows.forEach(function(row) {
+        var date = row.dataset.date;
+        var visible = true;
+        if (from && date < from) visible = false;
+        if (to && date > to) visible = false;
+        if (activeFilter && row.dataset.team !== activeFilter) visible = false;
+        row.style.display = visible ? "" : "none";
+        if (visible) shown++;
+      });
+
+      var bar = document.getElementById("filterBar");
+      var parts = [];
+      if (activeFilter) parts.push(activeFilter);
+      if (from || to) {
+        var range = (from || "...") + " to " + (to || "...");
+        parts.push(range);
+      }
+      if (parts.length > 0) {
+        bar.innerHTML = "";
+        bar.style.display = "flex";
+        bar.appendChild(document.createTextNode(
+          "Showing: " + parts.join(" | ") + " (" + shown + " issues)"));
+        var clearBtn = makeEl("button", "clear-btn", "Clear All");
+        clearBtn.onclick = function() {
+          activeFilter = null;
+          clearDateFilter();
+        };
+        bar.appendChild(clearBtn);
+      }
+    }
+
+    function clearDateFilter() {
+      document.getElementById("dateFrom").value = "";
+      document.getElementById("dateTo").value = "";
+      filterIssues(activeFilter);
     }
 
     // --- Footer ---

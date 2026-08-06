@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 
@@ -19,6 +19,9 @@ class IssueData:
     comments: list[dict]
     url: str
     created_at: str
+    author_association: str = "NONE"
+    author_login: str = ""
+    assignees: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -39,6 +42,8 @@ class TriageResult:
     recommendation: str
     confidence_flag: str | None
     assessed_at: str
+    author_association: str = "NONE"
+    author_login: str = ""
 
 
 @dataclass

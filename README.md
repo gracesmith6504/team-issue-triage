@@ -8,13 +8,13 @@ Multi-team GitHub issue triage agent for OpenShell. Classifies which of 6 Red Ha
 GitHub Issues → Signal Extraction → LLM Classification → Confidence Rules → Notify
 ```
 
-1. **Fetch** — pulls all new issues from watched repos via GitHub API, skipping already-seen issues
+1. **Fetch** — pulls all new issues from watched repos via GitHub API, skipping already-seen issues. Extracts `author_association` and assignees from the same API response (no extra calls)
 2. **Extract signals** — parses conventional commit title prefixes (`feat(cli):`) and filters labels (`area:*`, `topic:*`)
 3. **Classify** — one Claude Sonnet call per issue with all 6 team descriptions, a routing table, and calibration examples
 4. **Apply confidence rules** — auto-assign (>0.8), flag multi-team (gap <0.2), flag uncertain (<0.5), force-none override (<0.75)
 5. **Notify** — routes critical/high issues to team Slack channels immediately, medium/low accumulate for daily digest
 6. **Report** — weekly bird's eye view with team breakdown, area heatmap, duplicate detection, and LLM-generated narrative
-7. **Dashboard** — live HTML dashboard served via FastAPI, with status enrichment that re-checks each issue's current GitHub state (open/closed, comments, linked PRs)
+7. **Dashboard** — live HTML dashboard served via FastAPI, with linked PR detection via GitHub Timeline API, MAINTAINER badges for issues filed by repo members/collaborators, and client-side date filtering
 
 ### Teams
 
@@ -218,7 +218,7 @@ team-issue-triage/
 │   ├── sources/
 │   │   ├── source.py        # IssueSource protocol
 │   │   ├── github.py        # GitHub API issue fetcher
-│   │   └── enrichment.py    # Live GitHub status enrichment (open/closed, PRs, comments)
+│   │   └── enrichment.py    # Post-triage enrichment (linked PR detection via Timeline API)
 │   ├── notifications/
 │   │   ├── adapter.py       # NotificationAdapter protocol, config dataclasses
 │   │   ├── router.py        # NotificationRouter (immediate + digest routing)
@@ -254,7 +254,7 @@ Hexagonal architecture — pure core logic with pluggable adapters:
 - **Notifications** (`app/notifications/`) — adapter protocol with router. Log (stdout) and Slack (webhook). Per-team channel config from YAML.
 - **State** (`app/state/`) — JSON tracker with atomic writes via `os.replace`, JSONL assessment log with period-based queries.
 - **Reports** (`app/reports/`) — bird's eye view generator, duplicate detector, HTML dashboard and markdown renderers.
-- **Server** (`app/server.py`) — FastAPI web server with background scheduler. Runs triage hourly, enriches issues with live GitHub state, caches and serves the HTML dashboard.
+- **Server** (`app/server.py`) — FastAPI web server with background scheduler. Runs triage hourly, enriches issues with linked PR detection, caches and serves the HTML dashboard.
 
 ## Development
 

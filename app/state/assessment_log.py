@@ -26,6 +26,8 @@ def result_to_record(result: TriageResult) -> dict:
         "recommendation": result.recommendation,
         "confidence_flag": result.confidence_flag,
         "assessed_at": result.assessed_at,
+        "author_association": result.author_association,
+        "author_login": result.author_login,
     }
 
 
@@ -47,6 +49,8 @@ def record_to_result(record: dict) -> TriageResult:
         recommendation=record.get("recommendation", ""),
         confidence_flag=record.get("confidence_flag"),
         assessed_at=record.get("assessed_at", ""),
+        author_association=record.get("author_association", "NONE"),
+        author_login=record.get("author_login", ""),
     )
 
 

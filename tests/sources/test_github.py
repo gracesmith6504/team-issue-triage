@@ -21,6 +21,9 @@ def mock_issues_response():
             "html_url": "https://github.com/NVIDIA/OpenShell/issues/2401",
             "created_at": "2026-07-23T14:00:00Z",
             "pull_request": None,
+            "author_association": "NONE",
+            "user": {"login": "community-user"},
+            "assignees": [],
         },
         {
             "number": 2400,
@@ -29,6 +32,9 @@ def mock_issues_response():
             "labels": [{"name": "docs"}],
             "html_url": "https://github.com/NVIDIA/OpenShell/issues/2400",
             "created_at": "2026-07-23T13:00:00Z",
+            "author_association": "CONTRIBUTOR",
+            "user": {"login": "contributor-user"},
+            "assignees": [{"login": "alice"}],
         },
     ]
 
@@ -50,6 +56,27 @@ def test_fetch_new_issues(mock_get, github_source, mock_issues_response):
     assert issues[0].number == 2401
     assert issues[0].repo == "NVIDIA/OpenShell"
     assert issues[0].labels == ["kind/bug", "priority/critical"]
+
+
+@patch("app.sources.github.requests.get")
+def test_fetch_extracts_author_association(mock_get, github_source, mock_issues_response):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = mock_issues_response
+    mock_get.return_value = mock_response
+
+    issues = github_source.fetch_new_issues(
+        repos=["NVIDIA/OpenShell"],
+        since="2026-07-23T12:00:00Z",
+        seen_ids=set(),
+    )
+
+    assert issues[0].author_association == "NONE"
+    assert issues[0].author_login == "community-user"
+    assert issues[0].assignees == []
+    assert issues[1].author_association == "CONTRIBUTOR"
+    assert issues[1].author_login == "contributor-user"
+    assert issues[1].assignees == ["alice"]
 
 
 @patch("app.sources.github.requests.get")

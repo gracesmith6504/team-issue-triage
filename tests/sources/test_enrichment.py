@@ -27,41 +27,22 @@ def _make_result(number, repo="NVIDIA/OpenShell"):
 
 @patch("app.sources.enrichment.requests.get")
 def test_enrich_issues_basic(mock_get):
-    issue_resp = MagicMock()
-    issue_resp.status_code = 200
-    issue_resp.json.return_value = {
-        "state": "open",
-        "comments": 5,
-        "assignees": [{"login": "alice"}],
-    }
-
     timeline_resp = MagicMock()
     timeline_resp.status_code = 200
     timeline_resp.json.return_value = []
 
-    mock_get.side_effect = [issue_resp, timeline_resp]
+    mock_get.return_value = timeline_resp
 
     results = [_make_result(42)]
     enriched = enrich_issues(results, "ghp_test")
 
     assert 42 in enriched
-    assert enriched[42].is_open is True
-    assert enriched[42].comment_count == 5
-    assert enriched[42].assignees == ["alice"]
     assert enriched[42].has_linked_pr is False
     assert enriched[42].result is results[0]
 
 
 @patch("app.sources.enrichment.requests.get")
 def test_enrich_detects_linked_pr(mock_get):
-    issue_resp = MagicMock()
-    issue_resp.status_code = 200
-    issue_resp.json.return_value = {
-        "state": "open",
-        "comments": 1,
-        "assignees": [],
-    }
-
     timeline_resp = MagicMock()
     timeline_resp.status_code = 200
     timeline_resp.json.return_value = [
@@ -72,30 +53,10 @@ def test_enrich_detects_linked_pr(mock_get):
         },
     ]
 
-    mock_get.side_effect = [issue_resp, timeline_resp]
+    mock_get.return_value = timeline_resp
 
     enriched = enrich_issues([_make_result(10)], "ghp_test")
     assert enriched[10].has_linked_pr is True
-
-
-@patch("app.sources.enrichment.requests.get")
-def test_enrich_closed_issue(mock_get):
-    issue_resp = MagicMock()
-    issue_resp.status_code = 200
-    issue_resp.json.return_value = {
-        "state": "closed",
-        "comments": 3,
-        "assignees": [],
-    }
-
-    timeline_resp = MagicMock()
-    timeline_resp.status_code = 200
-    timeline_resp.json.return_value = []
-
-    mock_get.side_effect = [issue_resp, timeline_resp]
-
-    enriched = enrich_issues([_make_result(7)], "ghp_test")
-    assert enriched[7].is_open is False
 
 
 @patch("app.sources.enrichment.requests.get")
@@ -108,33 +69,22 @@ def test_enrich_fallback_on_api_error(mock_get):
 
     enriched = enrich_issues([_make_result(99)], "ghp_test")
     assert 99 in enriched
-    assert enriched[99].is_open is True
-    assert enriched[99].comment_count == 0
-    assert enriched[99].assignees == []
     assert enriched[99].has_linked_pr is False
 
 
 @patch("app.sources.enrichment.requests.get")
 def test_enrich_deduplicates_by_issue_number(mock_get):
-    issue_resp = MagicMock()
-    issue_resp.status_code = 200
-    issue_resp.json.return_value = {
-        "state": "open",
-        "comments": 2,
-        "assignees": [],
-    }
-
     timeline_resp = MagicMock()
     timeline_resp.status_code = 200
     timeline_resp.json.return_value = []
 
-    mock_get.side_effect = [issue_resp, timeline_resp]
+    mock_get.return_value = timeline_resp
 
     results = [_make_result(42), _make_result(42)]
     enriched = enrich_issues(results, "ghp_test")
 
     assert len(enriched) == 1
-    assert mock_get.call_count == 2  # one issue call + one timeline call
+    assert mock_get.call_count == 1
 
 
 @patch("app.sources.enrichment.requests.get")
@@ -146,19 +96,11 @@ def test_enrich_empty_list(mock_get):
 
 @patch("app.sources.enrichment.requests.get")
 def test_enrich_sets_auth_header(mock_get):
-    issue_resp = MagicMock()
-    issue_resp.status_code = 200
-    issue_resp.json.return_value = {
-        "state": "open",
-        "comments": 0,
-        "assignees": [],
-    }
-
     timeline_resp = MagicMock()
     timeline_resp.status_code = 200
     timeline_resp.json.return_value = []
 
-    mock_get.side_effect = [issue_resp, timeline_resp]
+    mock_get.return_value = timeline_resp
 
     enrich_issues([_make_result(1)], "ghp_secret")
 

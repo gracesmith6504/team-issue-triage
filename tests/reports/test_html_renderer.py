@@ -212,15 +212,10 @@ def test_render_html_narrative_not_italic():
 # --- Enrichment tests ---
 
 
-def _make_enrichment(
-    number, is_open=True, comment_count=0, assignees=None, has_linked_pr=False
-):
+def _make_enrichment(number, has_linked_pr=False):
     result = make_result(number, f"issue {number}")
     return EnrichedIssue(
         result=result,
-        is_open=is_open,
-        comment_count=comment_count,
-        assignees=assignees or [],
         has_linked_pr=has_linked_pr,
     )
 
@@ -231,24 +226,13 @@ def test_render_html_without_enrichment_unchanged():
     assert "REPORT_DATA" in html
 
 
-def test_render_html_with_enrichment_adds_fields():
-    enrichment = {1: _make_enrichment(1, comment_count=5, has_linked_pr=True)}
+def test_render_html_with_enrichment_adds_pr_field():
+    enrichment = {1: _make_enrichment(1, has_linked_pr=True)}
     report = make_report(
         all_issues=[make_result(1, "test issue", urgency=Urgency.CRITICAL)]
     )
     html = render_html(report, enrichment=enrichment)
-    assert '"is_open": true' in html
-    assert '"comment_count": 5' in html
     assert '"has_linked_pr": true' in html
-
-
-def test_render_html_closed_issue_badge():
-    enrichment = {1: _make_enrichment(1, is_open=False)}
-    report = make_report(
-        all_issues=[make_result(1, "closed issue", urgency=Urgency.CRITICAL)]
-    )
-    html = render_html(report, enrichment=enrichment)
-    assert "closed-badge" in html
 
 
 def test_render_html_pr_badge():
@@ -260,10 +244,13 @@ def test_render_html_pr_badge():
     assert "pr-badge" in html
 
 
-def test_render_html_comment_count_display():
-    enrichment = {1: _make_enrichment(1, comment_count=12)}
-    report = make_report(
-        all_issues=[make_result(1, "discussed issue", urgency=Urgency.CRITICAL)]
-    )
-    html = render_html(report, enrichment=enrichment)
-    assert "comment-count" in html
+def test_render_html_maintainer_badge_css():
+    html = render_html(make_report())
+    assert "maintainer-badge" in html
+
+
+def test_render_html_date_filter_inputs():
+    html = render_html(make_report())
+    assert "dateFrom" in html
+    assert "dateTo" in html
+    assert "date-filter" in html

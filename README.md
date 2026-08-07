@@ -14,7 +14,8 @@ GitHub Issues → Signal Extraction → LLM Classification → Confidence Rules 
 4. **Apply confidence rules** — auto-assign (>0.8), flag multi-team (gap <0.2), flag uncertain (<0.5), force-none override (<0.75)
 5. **Notify** — routes critical/high issues to team Slack channels immediately, medium/low accumulate for daily digest
 6. **Report** — weekly bird's eye view with team breakdown, area heatmap, duplicate detection, and LLM-generated narrative
-7. **Dashboard** — live HTML dashboard served via FastAPI, with linked PR detection via GitHub Timeline API, MAINTAINER badges for issues filed by repo members/collaborators, and client-side date filtering
+7. **Dashboard** — live HTML dashboard served via FastAPI, with linked PR detection, PR health tracking, vouch status monitoring, and historical trend sparklines
+8. **Metrics** — each triage run appends a snapshot to JSONL storage; the last 7 snapshots feed dashboard sparklines showing urgency, review backlog, vouch, and velocity trends
 
 ### Teams
 
@@ -44,7 +45,7 @@ GitHub Issues → Signal Extraction → LLM Classification → Confidence Rules 
 | LLM | Claude Sonnet via `anthropic[vertex]` SDK |
 | LLM Providers | Vertex AI (default), Anthropic API |
 | Web Server | FastAPI + Uvicorn |
-| Tests | pytest (236 tests) |
+| Tests | pytest (278 tests) |
 | Lint | ruff |
 | Container | Docker (non-root) |
 | Deploy | Kubernetes Deployment or CronJob + Kustomize |
@@ -94,6 +95,9 @@ All configuration is via environment variables:
 | `PROFILES_DIR` | `profiles` | Directory containing team YAML profiles |
 | `DEFAULT_LOOKBACK_HOURS` | `24` | How far back to scan for new issues |
 | `REPORT_OUTPUT_PATH` | — | File path for report output (omit for stdout) |
+| `METRICS_PATH` | `/data/metrics.jsonl` | JSONL file for historical metrics snapshots |
+| `PR_HEALTH_ENABLED` | `true` | Enable PR health tracking |
+| `VOUCH_TRACKING_ENABLED` | `true` | Enable vouch status monitoring |
 | `SLACK_WEBHOOK_AGENT_OPS` | — | Per-team Slack webhooks referenced from team YAMLs |
 
 ## Team Profiles
@@ -227,18 +231,28 @@ team-issue-triage/
 │   ├── state/
 │   │   ├── tracker.py       # JSON state persistence (atomic writes, namespaced keys)
 │   │   └── assessment_log.py # JSONL append-only log with period queries
+│   ├── metrics/
+│   │   ├── models.py        # MetricsSnapshot dataclass
+│   │   ├── store.py         # MetricsStore protocol + JsonlMetricsStore
+│   │   └── compute.py       # compute_snapshot(), build_sparklines() pure functions
+│   ├── pr_health/
+│   │   ├── models.py        # PRStatus, PRHealthFindings dataclasses
+│   │   └── fetcher.py       # GitHub PR health fetcher (age, stuck PRs, velocity)
+│   ├── vouch/
+│   │   ├── models.py        # VouchStatus, PendingVouch dataclasses
+│   │   └── fetcher.py       # GitHub Discussions vouch tracker (GraphQL)
 │   └── reports/
 │       ├── models.py        # BirdsEyeReport, ReportSummary, TeamSummary, AreaTrend
 │       ├── birds_eye.py     # Report generator (computes all sections + LLM narrative)
 │       ├── duplicates.py    # Duplicate detector (prefix grouping + token overlap)
 │       └── renderers/
-│           ├── html.py      # Interactive HTML dashboard with Chart.js
+│           ├── html.py      # Interactive HTML dashboard with sparklines
 │           └── markdown.py  # Markdown renderer for bird's eye report
 ├── profiles/
 │   ├── openshell.yaml       # Repo config (references teams, thresholds, none_examples)
 │   └── teams/               # 6 team profile YAMLs
 ├── k8s/                     # Kubernetes manifests
-├── tests/                   # 236 tests (unit + integration)
+├── tests/                   # 278 tests (unit + integration)
 ├── Dockerfile               # Non-root container (UID 1001)
 ├── Makefile                 # test, lint, format, build
 ├── requirements.txt
@@ -253,13 +267,16 @@ Hexagonal architecture — pure core logic with pluggable adapters:
 - **Sources** (`app/sources/`) — issue fetchers. Currently GitHub; protocol-based for extensibility.
 - **Notifications** (`app/notifications/`) — adapter protocol with router. Log (stdout) and Slack (webhook). Per-team channel config from YAML.
 - **State** (`app/state/`) — JSON tracker with atomic writes via `os.replace`, JSONL assessment log with period-based queries.
+- **Metrics** (`app/metrics/`) — historical metrics with `MetricsStore` protocol. JSONL v1 backend, pluggable for future Org Pulse integration.
+- **PR Health** (`app/pr_health/`) — GitHub REST API fetcher for PR age distribution, stuck PRs, merge velocity, review wait times.
+- **Vouch** (`app/vouch/`) — GitHub GraphQL fetcher for vouch discussion tracking, response times, pending contributor counts.
 - **Reports** (`app/reports/`) — bird's eye view generator, duplicate detector, HTML dashboard and markdown renderers.
 - **Server** (`app/server.py`) — FastAPI web server with background scheduler. Runs triage hourly, enriches issues with linked PR detection, caches and serves the HTML dashboard.
 
 ## Development
 
 ```bash
-make test      # Run all 236 tests
+make test      # Run all 278 tests
 make lint      # Check with ruff
 make format    # Auto-format with ruff
 make build     # Build Docker image

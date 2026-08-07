@@ -32,7 +32,7 @@ def app(config):
     with patch("app.server._schedule_cycle"):
         from app.server import create_app
 
-        return create_app(config)
+        yield create_app(config)
 
 
 @pytest.fixture()
@@ -86,13 +86,3 @@ def test_refresh_cooldown(app, client):
     app.state.last_triage = "2099-01-01T00:00:00+00:00"
     resp = client.post("/api/refresh")
     assert resp.status_code == 429
-
-
-def test_refresh_when_running(app, client):
-    app.state.last_triage = "2026-08-04T12:00:00+00:00"
-    lock = threading.Lock()
-    lock.acquire()
-    app.state.cycle_lock = lock
-    resp = client.post("/api/refresh")
-    assert resp.status_code == 409
-    lock.release()

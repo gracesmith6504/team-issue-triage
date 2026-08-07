@@ -1,11 +1,11 @@
 import logging
 import os
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 from app.config import TriageConfig
-from app.core.llm import create_llm_client, resolve_model
+from app.core.llm import build_llm_client, resolve_model
 from app.core.profiles import load_repo_config
 from app.core.prompt import build_system_prompt
 from app.core.triage_engine import triage_issue
@@ -26,16 +26,6 @@ from app.state.assessment_log import (
 from app.state.tracker import StateTracker
 
 logger = logging.getLogger(__name__)
-
-
-def _build_llm_client(config: TriageConfig):
-    if config.llm_provider == "anthropic":
-        return create_llm_client("anthropic", api_key=config.anthropic_api_key)
-    return create_llm_client(
-        "vertex",
-        project_id=config.vertex_project_id,
-        region=config.vertex_region,
-    )
 
 
 def _resolve_env_vars(value: str) -> str:
@@ -81,7 +71,7 @@ def run_triage(config: TriageConfig) -> None:
     system_prompt = build_system_prompt(repo_config)
     router = _build_notification_router(repo_config)
 
-    llm_client = _build_llm_client(config)
+    llm_client = build_llm_client(config)
     model = resolve_model(config.llm_provider, config.llm_model)
 
     seen_numbers = set()
@@ -177,28 +167,17 @@ def run_report(
     output_path: Path | None = None,
     fmt: str | None = None,
 ) -> None:
+    from app.metrics.compute import build_sparklines, compute_snapshot
+    from app.metrics.store import JsonlMetricsStore
+    from app.reports.enrich import enrich_report
+    from app.reports.periods import compute_period
+
     repo_config = load_repo_config("openshell", profiles_dir=config.profiles_dir)
-    reporting = repo_config.reporting
 
     now = datetime.now(timezone.utc)
-    period_days = 7 if reporting.get("period") == "weekly" else 1
-
-    # Compute current period start (most recent period_start day)
-    weekday_map = {
-        "monday": 0,
-        "tuesday": 1,
-        "wednesday": 2,
-        "thursday": 3,
-        "friday": 4,
-        "saturday": 5,
-        "sunday": 6,
-    }
-    target_weekday = weekday_map.get(reporting.get("period_start", "monday"), 0)
-    days_since = (now.weekday() - target_weekday) % 7
-    current_start = (now - timedelta(days=days_since)).replace(
-        hour=0, minute=0, second=0, microsecond=0
+    current_start, previous_start, period_label = compute_period(
+        repo_config.reporting, now
     )
-    previous_start = current_start - timedelta(days=period_days)
 
     current = read_results_as_triage(
         config.assessment_log_path,
@@ -210,15 +189,25 @@ def run_report(
         end_date=current_start.isoformat(),
     )
 
-    period_label = f"{current_start.strftime('%b %d')} – {now.strftime('%b %d, %Y')}"
-
-    llm_client = _build_llm_client(config)
+    llm_client = build_llm_client(config)
     model = resolve_model(config.llm_provider, config.llm_model)
 
     generator = BirdsEyeReportGenerator(
         current, previous, llm_client, model, period_label
     )
     report = generator.generate()
+
+    enrich_report(report, config, repo_config)
+
+    sparklines = None
+    try:
+        store = JsonlMetricsStore(config.metrics_path)
+        snapshot = compute_snapshot(report, now)
+        store.append(snapshot)
+        recent = store.read(limit=7)
+        sparklines = build_sparklines(recent)
+    except Exception:
+        logger.exception("Metrics collection failed")
 
     dest = output_path or config.report_output_path
     resolved_fmt = _detect_format(dest, fmt)
@@ -233,7 +222,7 @@ def run_report(
         except Exception:
             logger.exception("Enrichment failed, rendering without enrichment")
 
-        output = render_html(report, enrichment=enrichment)
+        output = render_html(report, enrichment=enrichment, sparklines=sparklines)
     else:
         output = render_markdown(report)
 

@@ -8,6 +8,8 @@ class ReportSummary:
     new_this_period: int
     by_urgency: dict[str, int]
     period_label: str
+    triage_needed: int = 0
+    total_open: int = 0
 
 
 @dataclass
@@ -47,3 +49,5 @@ class BirdsEyeReport:
     all_issues: list[TriageResult]
     narrative: str
     generated_at: str
+    pr_health: dict | None = None
+    vouch_status: dict | None = None

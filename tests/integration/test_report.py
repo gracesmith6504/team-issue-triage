@@ -25,7 +25,7 @@ def _make_config(tmp_path):
     )
 
 
-@patch("app.triage._build_llm_client")
+@patch("app.core.llm.build_llm_client")
 def test_run_report_empty_log(mock_llm, tmp_path, capsys):
     config = _make_config(tmp_path)
     llm = MagicMock()
@@ -37,7 +37,7 @@ def test_run_report_empty_log(mock_llm, tmp_path, capsys):
     assert "Bird's Eye View" in output
 
 
-@patch("app.triage._build_llm_client")
+@patch("app.core.llm.build_llm_client")
 def test_run_report_writes_to_file(mock_llm, tmp_path):
     config = _make_config(tmp_path)
     output_path = tmp_path / "report.md"

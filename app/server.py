@@ -1,6 +1,6 @@
 import logging
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import uvicorn
 from fastapi import FastAPI
@@ -132,31 +132,18 @@ def _run_cycle(app: FastAPI) -> None:
 
         app.state.enrichment = enrichment
 
-        from app.core.llm import resolve_model
+        from app.core.llm import build_llm_client, resolve_model
         from app.core.profiles import load_repo_config
         from app.reports.birds_eye import BirdsEyeReportGenerator
+        from app.reports.enrich import enrich_report
+        from app.reports.periods import compute_period
 
         repo_config = load_repo_config("openshell", profiles_dir=config.profiles_dir)
-        reporting = repo_config.reporting
 
         now = datetime.now(timezone.utc)
-        period_days = 7 if reporting.get("period") == "weekly" else 1
-
-        weekday_map = {
-            "monday": 0,
-            "tuesday": 1,
-            "wednesday": 2,
-            "thursday": 3,
-            "friday": 4,
-            "saturday": 5,
-            "sunday": 6,
-        }
-        target_weekday = weekday_map.get(reporting.get("period_start", "monday"), 0)
-        days_since = (now.weekday() - target_weekday) % 7
-        current_start = (now - timedelta(days=days_since)).replace(
-            hour=0, minute=0, second=0, microsecond=0
+        current_start, previous_start, period_label = compute_period(
+            repo_config.reporting, now
         )
-        previous_start = current_start - timedelta(days=period_days)
 
         current = read_results_as_triage(
             config.assessment_log_path,
@@ -168,11 +155,7 @@ def _run_cycle(app: FastAPI) -> None:
             end_date=current_start.isoformat(),
         )
 
-        period_label = (
-            f"{current_start.strftime('%b %d')} – {now.strftime('%b %d, %Y')}"
-        )
-
-        llm_client = _build_llm_client(config)
+        llm_client = build_llm_client(config)
         model = resolve_model(config.llm_provider, config.llm_model)
 
         generator = BirdsEyeReportGenerator(
@@ -180,9 +163,26 @@ def _run_cycle(app: FastAPI) -> None:
         )
         report = generator.generate()
 
+        enrich_report(report, config, repo_config)
+
+        sparklines = None
+        try:
+            from app.metrics.compute import build_sparklines, compute_snapshot
+            from app.metrics.store import JsonlMetricsStore
+
+            store = JsonlMetricsStore(config.metrics_path)
+            snapshot = compute_snapshot(report, now)
+            store.append(snapshot)
+            recent = store.read(limit=7)
+            sparklines = build_sparklines(recent)
+        except Exception:
+            logger.exception("Metrics collection failed")
+
         from app.reports.renderers.html import render_html
 
-        app.state.cached_html = render_html(report, enrichment=enrichment)
+        app.state.cached_html = render_html(
+            report, enrichment=enrichment, sparklines=sparklines
+        )
         app.state.last_triage = now.isoformat()
         app.state.issue_count = len(current)
 
@@ -192,18 +192,6 @@ def _run_cycle(app: FastAPI) -> None:
     finally:
         app.state.cycle_lock.release()
         _schedule_next(app)
-
-
-def _build_llm_client(config: TriageConfig):
-    from app.core.llm import create_llm_client
-
-    if config.llm_provider == "anthropic":
-        return create_llm_client("anthropic", api_key=config.anthropic_api_key)
-    return create_llm_client(
-        "vertex",
-        project_id=config.vertex_project_id,
-        region=config.vertex_region,
-    )
 
 
 def _schedule_next(app: FastAPI) -> None:

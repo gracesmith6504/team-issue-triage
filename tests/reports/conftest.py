@@ -35,6 +35,7 @@ def make_result(
         recommendation="test",
         confidence_flag=confidence_flag,
         assessed_at="2026-07-28T10:00:00+00:00",
+        created_at="2026-07-25T10:00:00Z",
     )
 
 
@@ -44,6 +45,7 @@ def make_report(**overrides):
             new_this_period=5,
             by_urgency={"critical": 1, "high": 2, "medium": 1, "low": 1},
             period_label="Jul 28 – Aug 3, 2026",
+            total_open=5,
         ),
         critical_list=[make_result(1, "critical issue", urgency=Urgency.CRITICAL)],
         team_breakdown={

@@ -59,7 +59,9 @@ def test_fetch_new_issues(mock_get, github_source, mock_issues_response):
 
 
 @patch("app.sources.github.requests.get")
-def test_fetch_extracts_author_association(mock_get, github_source, mock_issues_response):
+def test_fetch_extracts_author_association(
+    mock_get, github_source, mock_issues_response
+):
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = mock_issues_response

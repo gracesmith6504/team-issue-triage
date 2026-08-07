@@ -107,6 +107,7 @@ def triage_issue(
         recommendation=response.get("recommendation", ""),
         confidence_flag=confidence_flag,
         assessed_at=datetime.now(timezone.utc).isoformat(),
+        created_at=issue.created_at,
         author_association=issue.author_association,
         author_login=issue.author_login,
     )

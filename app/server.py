@@ -1,5 +1,6 @@
 import logging
 import threading
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 import uvicorn
@@ -41,7 +42,17 @@ _LOADING_HTML = """\
 
 
 def create_app(config: TriageConfig) -> FastAPI:
-    app = FastAPI(title="OpenShell Triage Dashboard", docs_url=None, redoc_url=None)
+    @asynccontextmanager
+    async def lifespan(app):
+        _schedule_cycle(app)
+        yield
+
+    app = FastAPI(
+        title="OpenShell Triage Dashboard",
+        docs_url=None,
+        redoc_url=None,
+        lifespan=lifespan,
+    )
 
     app.state.config = config
     app.state.cached_html = None
@@ -49,10 +60,6 @@ def create_app(config: TriageConfig) -> FastAPI:
     app.state.issue_count = 0
     app.state.enrichment = {}
     app.state.cycle_lock = threading.Lock()
-
-    @app.on_event("startup")
-    async def on_startup():
-        _schedule_cycle(app)
 
     @app.get("/", response_class=HTMLResponse)
     async def dashboard():
@@ -86,13 +93,6 @@ def create_app(config: TriageConfig) -> FastAPI:
                     },
                     status_code=429,
                 )
-
-        if not app.state.cycle_lock.acquire(blocking=False):
-            return JSONResponse(
-                {"error": "Triage cycle already running"},
-                status_code=409,
-            )
-        app.state.cycle_lock.release()
 
         thread = threading.Thread(target=_run_cycle, args=(app,), daemon=True)
         thread.start()

@@ -29,6 +29,7 @@ class RepoConfig:
     none_examples: list[dict]
     confidence_thresholds: dict[str, float]
     reporting: dict
+    codeowners: list[str] | None = None
 
 
 def _load_team_profile(path: Path) -> TeamProfile:
@@ -104,4 +105,5 @@ def load_repo_config(name: str, profiles_dir: Path | None = None) -> RepoConfig:
         none_examples=data.get("none_examples", []),
         confidence_thresholds=data.get("confidence_thresholds", {}),
         reporting=data.get("reporting", {}),
+        codeowners=data.get("codeowners"),
     )

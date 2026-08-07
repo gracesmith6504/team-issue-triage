@@ -1,6 +1,11 @@
 repo: "NVIDIA/OpenShell"
 pinned_version: "v0.0.92"
 
+codeowners:
+  - mrunalp
+  - maxamillion
+  - derekwaynecarr
+
 team_profiles:
   - teams/agent-ops.yaml
   - teams/acp.yaml

@@ -89,6 +89,7 @@ class BirdsEyeReportGenerator:
             new_this_period=len(self._current),
             by_urgency=by_urgency,
             period_label=self._period_label,
+            total_open=len(self._current),
         )
 
     def _extract_critical_list(self) -> list[TriageResult]:

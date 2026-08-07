@@ -95,6 +95,16 @@ def resolve_model(provider: str, explicit_model: str | None) -> str:
     return DEFAULT_MODELS[provider]
 
 
+def build_llm_client(config) -> LLMClientProtocol:
+    if config.llm_provider == "anthropic":
+        return create_llm_client("anthropic", api_key=config.anthropic_api_key)
+    return create_llm_client(
+        "vertex",
+        project_id=config.vertex_project_id,
+        region=config.vertex_region,
+    )
+
+
 def create_llm_client(provider: str = "vertex", **kwargs: str) -> LLMClientProtocol:
     if provider == "anthropic":
         return AnthropicClient(api_key=kwargs["api_key"])

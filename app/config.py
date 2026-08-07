@@ -20,6 +20,9 @@ class TriageConfig:
     profiles_dir: Path
     default_lookback_hours: int
     report_output_path: Path | None
+    pr_health_enabled: bool = True
+    vouch_tracking_enabled: bool = True
+    metrics_path: Path = Path("/data/metrics.jsonl")
 
 
 def load_config() -> TriageConfig:
@@ -72,4 +75,9 @@ def load_config() -> TriageConfig:
         report_output_path=Path(p)
         if (p := os.environ.get("REPORT_OUTPUT_PATH"))
         else None,
+        pr_health_enabled=os.environ.get("PR_HEALTH_ENABLED", "true").lower()
+        != "false",
+        vouch_tracking_enabled=os.environ.get("VOUCH_TRACKING_ENABLED", "true").lower()
+        != "false",
+        metrics_path=Path(os.environ.get("METRICS_PATH", "/data/metrics.jsonl")),
     )

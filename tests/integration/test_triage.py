@@ -101,7 +101,7 @@ def test_load_config_from_env_anthropic():
 def test_run_triage_no_new_issues(config):
     with (
         patch("app.triage.GitHubSource") as mock_source_cls,
-        patch("app.triage.create_llm_client") as mock_llm_factory,
+        patch("app.triage.build_llm_client") as mock_llm_factory,
     ):
         mock_source = MagicMock()
         mock_source.fetch_new_issues.return_value = []
@@ -130,7 +130,7 @@ def test_run_triage_with_classification(config):
 
     with (
         patch("app.triage.GitHubSource") as mock_source_cls,
-        patch("app.triage.create_llm_client") as mock_llm_factory,
+        patch("app.triage.build_llm_client") as mock_llm_factory,
     ):
         mock_source = MagicMock()
         mock_source.fetch_new_issues.return_value = [mock_issue]
@@ -191,7 +191,7 @@ def test_run_triage_dedup_across_runs(config):
 
     with (
         patch("app.triage.GitHubSource") as mock_source_cls,
-        patch("app.triage.create_llm_client") as mock_llm_factory,
+        patch("app.triage.build_llm_client") as mock_llm_factory,
     ):
         mock_source = MagicMock()
         mock_source.fetch_new_issues.return_value = [mock_issue]

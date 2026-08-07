@@ -42,6 +42,7 @@ class TriageResult:
     recommendation: str
     confidence_flag: str | None
     assessed_at: str
+    created_at: str = ""
     author_association: str = "NONE"
     author_login: str = ""
 

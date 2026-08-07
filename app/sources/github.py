@@ -77,9 +77,7 @@ class GitHubSource:
                     created_at=item["created_at"],
                     author_association=item.get("author_association", "NONE"),
                     author_login=item.get("user", {}).get("login", ""),
-                    assignees=[
-                        a["login"] for a in item.get("assignees", [])
-                    ],
+                    assignees=[a["login"] for a in item.get("assignees", [])],
                 )
             )
 

@@ -774,7 +774,7 @@ const REPORT_DATA = __REPORT_JSON__;
 
     if (d.vouch_status) {
       var vouchCount = d.vouch_status.total_pending || 0;
-      var longestVouch = d.vouch_status.pending_vouches.length ? d.vouch_status.pending_vouches[d.vouch_status.pending_vouches.length - 1] : null;
+      var longestVouch = d.vouch_status.pending_vouches.length ? d.vouch_status.pending_vouches[0] : null;
       alertData.push({color: "#e16f24", text: '<strong>' + vouchCount + '</strong> contributors waiting for vouch' + (longestVouch ? ' - longest: <a href="' + esc(longestVouch.url) + '" target="_blank">@' + esc(longestVouch.author) + '</a> (' + longestVouch.wait_days + ' days)' : '')});
     }
 

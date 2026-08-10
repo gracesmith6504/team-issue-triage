@@ -130,13 +130,8 @@ function buildTeamRouting() {
             : '';
 
           var detailsHTML = '';
-          if (iss.summary || iss.recommendation) {
-            detailsHTML = '<div class="issue-sub">';
-            if (iss.summary) detailsHTML += esc(iss.summary);
-            if (iss.recommendation) {
-              detailsHTML += '<div class="issue-rec">' + esc(iss.recommendation) + '</div>';
-            }
-            detailsHTML += '</div>';
+          if (iss.summary) {
+            detailsHTML = '<div class="issue-sub">' + esc(iss.summary) + '</div>';
           }
 
           row.className = 'issue ' + urgencyClass;

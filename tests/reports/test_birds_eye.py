@@ -142,7 +142,8 @@ def test_narrative_from_llm():
     )
     report = gen.generate()
     assert report.narrative == "Gateway saw unusual activity this week."
-    llm.assess.assert_called_once()
+    # LLM is called twice: once for synthesis, once for narrative
+    assert llm.assess.call_count == 2
 
 
 def test_narrative_fallback_on_llm_failure():

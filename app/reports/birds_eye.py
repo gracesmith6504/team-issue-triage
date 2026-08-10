@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import datetime, timezone
 
@@ -5,11 +6,15 @@ from app.core.llm import LLMClientProtocol
 from app.core.models import TriageResult, Urgency
 from app.reports.duplicates import DuplicateDetector
 from app.reports.models import (
+    AreaGroup,
     AreaTrend,
     BirdsEyeReport,
     ReportSummary,
     TeamSummary,
+    TeamSynthesis,
 )
+
+logger = logging.getLogger(__name__)
 
 _PREFIX_RE = re.compile(r"^(?:feat|fix|bug|chore|docs|refactor|test|ci)\(([^)]+)\):\s*")
 
@@ -57,6 +62,17 @@ class BirdsEyeReportGenerator:
         area_heatmap = self._compute_area_heatmap()
         duplicate_clusters = self._detect_duplicates()
         no_team_list = self._extract_no_team_list()
+        team_synthesis = self._build_team_synthesis()
+
+        # Generate LLM-based focus summaries and action items
+        try:
+            from app.reports.synthesis import synthesize_team_summaries
+            team_synthesis = synthesize_team_summaries(
+                team_synthesis, self._llm_client, self._model
+            )
+        except Exception:
+            logger.exception("Team synthesis generation failed, using empty summaries")
+
         narrative = self._generate_narrative(
             summary, critical_list, team_breakdown, area_heatmap
         )
@@ -77,6 +93,7 @@ class BirdsEyeReportGenerator:
             all_issues=all_issues,
             narrative=narrative,
             generated_at=generated_at,
+            team_synthesis=team_synthesis,
         )
 
     def _compute_summary(self) -> ReportSummary:
@@ -166,6 +183,68 @@ class BirdsEyeReportGenerator:
 
     def _extract_no_team_list(self) -> list[TriageResult]:
         return [r for r in self._current if r.primary_team == "none"]
+
+    def _build_team_synthesis(self) -> dict[str, TeamSynthesis]:
+        """Build TeamSynthesis structures with area grouping, without LLM summaries."""
+        team_map: dict[str, dict[str, list[TriageResult]]] = {}
+
+        # Group issues by team, then by area
+        for r in self._current:
+            team = r.primary_team
+            # Extract area from title prefix
+            prefix = _extract_prefix(r.issue_title)
+            area = prefix or "uncategorized"
+            team_map.setdefault(team, {}).setdefault(area, []).append(r)
+
+        # Compute previous counts
+        previous_teams: dict[str, int] = {}
+        for r in self._previous:
+            previous_teams[r.primary_team] = previous_teams.get(r.primary_team, 0) + 1
+
+        result: dict[str, TeamSynthesis] = {}
+        for team_id, areas in team_map.items():
+            total = sum(len(issues) for issues in areas.values())
+            by_urgency: dict[str, int] = {}
+            area_groups: dict[str, AreaGroup] = {}
+
+            for area, issues in areas.items():
+                area_urgency: dict[str, int] = {}
+                for r in issues:
+                    u = r.urgency.value
+                    area_urgency[u] = area_urgency.get(u, 0) + 1
+                    by_urgency[u] = by_urgency.get(u, 0) + 1
+
+                # Sort issues by urgency then number
+                sorted_issues = sorted(
+                    issues,
+                    key=lambda r: (
+                        _URGENCY_SORT.get(r.urgency.value, 99),
+                        r.issue_number,
+                    ),
+                )
+
+                area_groups[area] = AreaGroup(
+                    area=area,
+                    total=len(issues),
+                    by_urgency=area_urgency,
+                    issues=sorted_issues,
+                )
+
+            prev_count = previous_teams.get(team_id, 0)
+            delta = total - prev_count
+
+            result[team_id] = TeamSynthesis(
+                team_id=team_id,
+                team_name=team_id,  # Will be enriched later with actual team name
+                focus_summary="",  # Will be filled by LLM synthesis
+                actions=[],  # Will be filled by LLM synthesis
+                area_groups=area_groups,
+                total=total,
+                by_urgency=by_urgency,
+                trend=_format_trend(delta),
+            )
+
+        return result
 
     def _generate_narrative(
         self,

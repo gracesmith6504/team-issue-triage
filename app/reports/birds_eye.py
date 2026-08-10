@@ -25,10 +25,43 @@ _URGENCY_SORT = {
     "low": 3,
 }
 
+# Area inference keywords for issues without conventional commit prefixes
+_AREA_KEYWORDS = {
+    "sandbox": ["sandbox", "container", "workload", "sandbox create", "sandbox exec"],
+    "cli": ["cli", "command line", "openshell sandbox", "openshell gateway", "openshell provider"],
+    "gateway": ["gateway", "authentication", "oidc", "mtls", "tls", "auth", "certificate"],
+    "gateway-interceptors": ["interceptor", "middleware", "execution plan"],
+    "kubernetes": ["kubernetes", "k8s", "pod", "helm", "operator", "deployment", "eviction"],
+    "supervisor": ["supervisor", "exec", "process", "spiffe workload api"],
+    "python": ["python", "sdk", "pep 517", "pip", "wheel", "sdist", "maturin"],
+    "sdk": ["sdk", "protobuf", "grpc", "client"],
+    "observability": ["ocsf", "events", "logging", "metrics", "telemetry"],
+    "policy": ["policy", "guardrails", "landlock", "seccomp"],
+    "server": ["server", "grpc service", "health check"],
+    "driver": ["docker driver", "podman driver", "vm driver", "compute driver"],
+    "driver-podman": ["podman", "podman machine"],
+    "driver-docker": ["docker"],
+}
+
 
 def _extract_prefix(title: str) -> str | None:
     m = _PREFIX_RE.match(title)
     return m.group(1) if m else None
+
+
+def _infer_area_from_content(title: str, summary: str) -> str:
+    """Infer area from issue content using keyword matching."""
+    text = (title + " " + summary).lower()
+
+    # Score each area by keyword matches
+    scores: dict[str, int] = {}
+    for area, keywords in _AREA_KEYWORDS.items():
+        scores[area] = sum(1 for keyword in keywords if keyword in text)
+
+    # Return area with highest score, or "uncategorized" if no matches
+    if scores and max(scores.values()) > 0:
+        return max(scores, key=scores.get)
+    return "uncategorized"
 
 
 def _format_trend(delta: int) -> str:
@@ -196,9 +229,13 @@ class BirdsEyeReportGenerator:
             seen_numbers.add(r.issue_number)
 
             team = r.primary_team
-            # Extract area from title prefix
+            # Try conventional commit prefix first, then keyword inference
             prefix = _extract_prefix(r.issue_title)
-            area = prefix or "uncategorized"
+            if prefix:
+                area = prefix
+            else:
+                # Infer from content if no prefix
+                area = _infer_area_from_content(r.issue_title, r.summary)
             team_map.setdefault(team, {}).setdefault(area, []).append(r)
 
         # Compute previous counts

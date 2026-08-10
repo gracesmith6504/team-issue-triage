@@ -9,6 +9,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
+from app.reports.birds_eye import _extract_prefix, _infer_area_from_content
 from app.reports.models import BirdsEyeReport
 
 _TEMPLATE_DIR = Path(__file__).parent / "templates"
@@ -32,12 +33,14 @@ def _convert_value(obj):
     return obj
 
 
-_AREA_RE = re.compile(r"^(?:feat|fix|bug|chore|docs|refactor|test|ci)\(([^)]+)\):\s*")
-
-
-def _extract_area(title: str) -> str:
-    m = _AREA_RE.match(title)
-    return m.group(1) if m else ""
+def _get_area(title: str, summary: str) -> str:
+    """Get area using same logic as birds_eye: prefix or keyword inference."""
+    prefix = _extract_prefix(title)
+    if prefix:
+        return prefix
+    # Infer from content if no prefix
+    area = _infer_area_from_content(title, summary)
+    return area if area != "uncategorized" else ""
 
 
 def _report_to_dict(
@@ -50,8 +53,20 @@ def _report_to_dict(
 
     now = datetime.now(timezone.utc)
     team_issues: dict[str, list] = {}
+    seen_issue_numbers: set[int] = set()  # Deduplicate by issue number
+
     for issue in data.get("all_issues", []):
-        issue["area"] = _extract_area(issue.get("issue_title", ""))
+        issue_num = issue.get("issue_number", 0)
+
+        # Deduplicate - skip if already seen
+        if issue_num in seen_issue_numbers:
+            continue
+        seen_issue_numbers.add(issue_num)
+
+        # Use keyword inference for area classification
+        issue["area"] = _get_area(
+            issue.get("issue_title", ""), issue.get("summary", "")
+        )
         created_at = issue.get("created_at", "")
         if created_at:
             created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
@@ -64,11 +79,11 @@ def _report_to_dict(
         team = issue.get("primary_team", "none")
         team_issues.setdefault(team, []).append(
             {
-                "number": issue["issue_number"],
+                "number": issue_num,
                 "title": issue["issue_title"],
                 "url": issue["issue_url"],
                 "urgency": issue["urgency"],
-                "issue_number": issue["issue_number"],
+                "issue_number": issue_num,
                 "issue_title": issue["issue_title"],
                 "issue_url": issue["issue_url"],
                 "author_login": issue.get("author_login", ""),

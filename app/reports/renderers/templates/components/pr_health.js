@@ -19,12 +19,11 @@ function buildPRHealth() {
   summary.innerHTML = '<div class="section-title">PR Health</div>';
   header.appendChild(summary);
 
-  var tiles = el("div", "metric-tiles");
+  var tiles = el("div", "metric-tiles metric-tiles-3");
   var tileData = [
     {value: d.pr_health.total_open, label: "Open PRs", color: "var(--text-primary)", accent: "var(--border)"},
     {value: d.pr_health.awaiting_review, label: "Awaiting Review", color: "var(--status-waiting)", accent: "var(--status-waiting)"},
-    {value: d.pr_health.stale_14d, label: "Stale (14d+)", color: "var(--urgency-high)", accent: "var(--urgency-high)"},
-    {value: d.pr_health.avg_review_wait_days + "d", label: "Avg Review Wait", color: "var(--status-waiting)", accent: "var(--status-waiting)"}
+    {value: d.pr_health.stale_14d, label: "Stale (14d+)", color: "var(--urgency-high)", accent: "var(--urgency-high)"}
   ];
   tileData.forEach(function(t) {
     var tile = el("div", "metric-tile");

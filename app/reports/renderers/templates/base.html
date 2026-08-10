@@ -969,9 +969,6 @@ const REPORT_DATA = {{ report_json }};
     app.appendChild(buildTeamRouting());
     if (d.pr_health) app.appendChild(buildPRHealth());
     if (d.vouch_status) app.appendChild(buildContributorHealth());
-    app.appendChild(buildAreaBreakdown());
-    app.appendChild(buildAllIssuesTable());
-    app.appendChild(buildDuplicates());
     app.appendChild(buildFooter());
   });
 

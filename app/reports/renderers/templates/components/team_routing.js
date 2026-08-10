@@ -110,7 +110,7 @@ function buildTeamRouting() {
           '</div>';
 
         // Add issue rows for this area
-        var issuesDiv = el("div", "area-group-issues");
+        var areaIssuesDiv = el("div", "area-group-issues");
         var issuesContainer = el("div", "issues");
         var issues = areaGroup || [];
         issues.forEach(function(iss) {
@@ -147,8 +147,8 @@ function buildTeamRouting() {
             detailsHTML;
           issuesContainer.appendChild(row);
         });
-        issuesDiv.appendChild(issuesContainer);
-        areaSection.appendChild(issuesDiv);
+        areaIssuesDiv.appendChild(issuesContainer);
+        areaSection.appendChild(areaIssuesDiv);
 
         issuesDiv.appendChild(areaSection);
       });

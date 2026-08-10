@@ -353,3 +353,139 @@ def test_render_html_velocity_strip():
     }
     html = render_html(make_report(pr_health=pr_data))
     assert "velocity-strip" in html
+
+
+def test_template_directory_exists():
+    from pathlib import Path
+    import app.reports.renderers.html as html_mod
+
+    template_dir = Path(html_mod.__file__).parent / "templates"
+    assert template_dir.is_dir(), f"Template directory missing: {template_dir}"
+    assert (template_dir / "base.html").is_file(), "base.html template missing"
+
+
+def test_base_template_has_css():
+    from pathlib import Path
+
+    template_path = (
+        Path(__file__).resolve().parents[2]
+        / "app"
+        / "reports"
+        / "renderers"
+        / "templates"
+        / "base.html"
+    )
+    content = template_path.read_text()
+    assert "<style>" in content
+    assert "--bg-body: #f4f5f7" in content
+    assert "--urgency-critical:" in content
+    assert "kpi-grid" in content
+    assert "@media" in content
+
+
+def test_base_template_has_refined_css():
+    from pathlib import Path
+
+    template_path = (
+        Path(__file__).resolve().parents[2]
+        / "app"
+        / "reports"
+        / "renderers"
+        / "templates"
+        / "base.html"
+    )
+    content = template_path.read_text()
+    assert '<style id="refined">' in content
+    assert "REFINED VISUAL LAYER" in content
+    assert "Inter Tight" in content
+    assert "cubic-bezier" in content
+    assert "--accent-soft:" in content
+
+
+def test_all_component_files_exist():
+    from pathlib import Path
+
+    components_dir = (
+        Path(__file__).resolve().parents[2]
+        / "app"
+        / "reports"
+        / "renderers"
+        / "templates"
+        / "components"
+    )
+    expected = [
+        "shared.js",
+        "topbar.js",
+        "kpis.js",
+        "alerts.js",
+        "team_routing.js",
+        "pr_health.js",
+        "contributor_health.js",
+        "area_breakdown.js",
+        "issues_table.js",
+        "duplicates.js",
+        "footer.js",
+    ]
+    for name in expected:
+        assert (components_dir / name).is_file(), f"Missing component: {name}"
+
+
+def test_render_html_uses_jinja2_template():
+    """Verify render_html delegates to Jinja2, not string replacement."""
+    import app.reports.renderers.html as html_mod
+
+    assert not hasattr(html_mod, "_HTML_TEMPLATE"), (
+        "_HTML_TEMPLATE should be removed after Jinja2 migration"
+    )
+
+
+def test_render_html_end_to_end_structure():
+    """Verify the full rendered output has all expected sections."""
+    pr_data = {
+        "total_open": 42,
+        "awaiting_review": 5,
+        "stale_14d": 3,
+        "gator_coverage_pct": 60,
+        "merge_velocity": 8,
+        "merge_velocity_prev": 6,
+        "avg_review_wait_days": 4.2,
+        "stuck_prs": [],
+        "codeowners": ["mrunalp"],
+        "age_distribution": {
+            "lt_1w": {"count": 10, "label": "< 1 week"},
+            "1_2w": {"count": 8, "label": "1-2 weeks"},
+            "2_4w": {"count": 12, "label": "2-4 weeks"},
+            "gt_1m": {"count": 12, "label": "> 1 month"},
+        },
+    }
+    vouch_data = {
+        "total_pending": 3,
+        "responded_in_7d": 1,
+        "longest_wait_days": 45,
+        "over_30d_count": 2,
+        "pending_vouches": [
+            {
+                "author": "testuser",
+                "discussion_number": 100,
+                "url": "https://github.com/test/100",
+                "wait_days": 45,
+                "created_at": "2026-06-01T00:00:00Z",
+            }
+        ],
+    }
+    html = render_html(make_report(pr_health=pr_data, vouch_status=vouch_data))
+
+    assert "<!DOCTYPE html>" in html
+    assert "REPORT_DATA" in html
+    assert "buildTopBar" in html
+    assert "buildKPIs" in html
+    assert "buildAlerts" in html
+    assert "buildTeamRouting" in html
+    assert "buildPRHealth" in html
+    assert "buildContributorHealth" in html
+    assert "buildAreaBreakdown" in html
+    assert "buildAllIssuesTable" in html
+    assert "buildDuplicates" in html
+    assert "buildFooter" in html
+    assert "OpenShell Overview" in html
+    assert "--bg-body: #f4f5f7" in html

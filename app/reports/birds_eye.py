@@ -188,8 +188,13 @@ class BirdsEyeReportGenerator:
         """Build TeamSynthesis structures with area grouping, without LLM summaries."""
         team_map: dict[str, dict[str, list[TriageResult]]] = {}
 
-        # Group issues by team, then by area
+        # Group issues by team, then by area (deduplicate by issue number)
+        seen_numbers: set[int] = set()
         for r in self._current:
+            if r.issue_number in seen_numbers:
+                continue
+            seen_numbers.add(r.issue_number)
+
             team = r.primary_team
             # Extract area from title prefix
             prefix = _extract_prefix(r.issue_title)

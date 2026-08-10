@@ -116,6 +116,16 @@ def _report_to_dict(
         "velocity": [0, 0, 0, 0, 0, 0, 0],
     }
 
+    # Attach synthesis data to team_breakdown
+    if data.get("team_synthesis"):
+        for team_id, team in data.get("team_breakdown", {}).items():
+            synth = data["team_synthesis"].get(team_id)
+            if synth:
+                team["synthesis"] = {
+                    "focus_summary": synth.get("focus_summary", ""),
+                    "actions": synth.get("actions", []),
+                }
+
     return data
 
 

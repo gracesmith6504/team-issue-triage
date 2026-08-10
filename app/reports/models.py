@@ -23,6 +23,26 @@ class TeamSummary:
 
 
 @dataclass
+class AreaGroup:
+    area: str
+    total: int
+    by_urgency: dict[str, int]
+    issues: list[TriageResult]
+
+
+@dataclass
+class TeamSynthesis:
+    team_id: str
+    team_name: str
+    focus_summary: str
+    actions: list[str]
+    area_groups: dict[str, AreaGroup]
+    total: int
+    by_urgency: dict[str, int]
+    trend: str
+
+
+@dataclass
 class AreaTrend:
     area: str
     current_count: int
@@ -51,3 +71,4 @@ class BirdsEyeReport:
     generated_at: str
     pr_health: dict | None = None
     vouch_status: dict | None = None
+    team_synthesis: dict[str, TeamSynthesis] | None = None

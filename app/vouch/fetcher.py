@@ -70,19 +70,19 @@ def fetch_vouch_status(repo: str, token: str) -> VouchFindings:
     responded_count = 0
 
     for disc in discussions:
-        if disc.get("closed"):
-            continue
-
         author = disc["author"]["login"] if disc.get("author") else "unknown"
         created = datetime.fromisoformat(disc["createdAt"].replace("Z", "+00:00"))
         wait_days = (now - created).days
 
         has_vouch = _check_vouched(disc)
 
-        if has_vouch:
-            if wait_days <= 7:
-                responded_count += 1
-        else:
+        if has_vouch and wait_days <= 7:
+            responded_count += 1
+
+        if disc.get("closed"):
+            continue
+
+        if not has_vouch:
             pending.append(
                 PendingVouch(
                     author=author,

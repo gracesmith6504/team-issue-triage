@@ -177,7 +177,7 @@ def test_over_30d_count(mock_post, mock_dt):
 
 @patch("app.vouch.fetcher.datetime")
 @patch("app.vouch.fetcher.requests.post")
-def test_closed_discussions_skipped(mock_post, mock_dt):
+def test_closed_discussions_excluded_from_pending(mock_post, mock_dt):
     _patch_dt(mock_dt)
     discs = [
         _make_discussion(1, created_days_ago=10, closed=True),
@@ -190,3 +190,34 @@ def test_closed_discussions_skipped(mock_post, mock_dt):
     result = fetch_vouch_status("test/repo", "fake-token")
     assert result.total_pending == 1
     assert result.pending_vouches[0].discussion_number == 2
+
+
+@patch("app.vouch.fetcher.datetime")
+@patch("app.vouch.fetcher.requests.post")
+def test_responded_in_7d_counts_closed_vouched_discussions(mock_post, mock_dt):
+    _patch_dt(mock_dt)
+    discs = [
+        _make_discussion(
+            1,
+            author="recentuser",
+            created_days_ago=5,
+            closed=True,
+            comments=[_make_comment("/vouch", "MEMBER")],
+        ),
+        _make_discussion(
+            2,
+            author="olduser",
+            created_days_ago=20,
+            closed=True,
+            comments=[_make_comment("/vouch", "MEMBER")],
+        ),
+        _make_discussion(3, author="waitinguser", created_days_ago=3),
+    ]
+    mock_post.side_effect = [
+        _make_response(_categories_response()),
+        _make_response(_discussions_response(discs)),
+    ]
+    result = fetch_vouch_status("test/repo", "fake-token")
+    assert result.responded_in_7d == 1
+    assert result.total_pending == 1
+    assert result.pending_vouches[0].author == "waitinguser"

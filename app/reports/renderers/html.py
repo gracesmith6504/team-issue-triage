@@ -76,6 +76,14 @@ def _report_to_dict(
         issue["has_linked_pr"] = False
         issue["comment_count"] = 0
 
+        # Truncate summary and recommendation for readability
+        summary = issue.get("summary", "")
+        recommendation = issue.get("recommendation", "")
+        if len(summary) > 180:
+            summary = summary[:177] + "..."
+        if len(recommendation) > 120:
+            recommendation = recommendation[:117] + "..."
+
         team = issue.get("primary_team", "none")
         team_issues.setdefault(team, []).append(
             {
@@ -89,14 +97,21 @@ def _report_to_dict(
                 "author_login": issue.get("author_login", ""),
                 "days_open": issue.get("days_open", 0),
                 "has_linked_pr": issue.get("has_linked_pr", False),
-                "summary": issue.get("summary", ""),
-                "recommendation": issue.get("recommendation", ""),
+                "summary": summary,
+                "recommendation": recommendation,
             }
         )
 
     if enrichment:
         for key in ("critical_list", "no_team_list", "all_issues"):
             for issue in data.get(key, []):
+                enr = enrichment.get(issue["issue_number"])
+                if enr:
+                    issue["has_linked_pr"] = enr.has_linked_pr
+
+        # Apply enrichment to team_issues as well
+        for team_id, issues in team_issues.items():
+            for issue in issues:
                 enr = enrichment.get(issue["issue_number"])
                 if enr:
                     issue["has_linked_pr"] = enr.has_linked_pr

@@ -115,8 +115,16 @@ function buildTeamRouting() {
         var issues = areaGroup || [];
         issues.forEach(function(iss) {
           var row = el("article", "issue");
-          var urgencyClass = 'u-' + iss.urgency;
-          var dotClass = iss.urgency;
+          // Map full urgency names to short CSS classes
+          var urgencyMap = {
+            'critical': 'crit',
+            'high': 'high',
+            'medium': 'med',
+            'low': 'low'
+          };
+          var shortUrgency = urgencyMap[iss.urgency] || iss.urgency;
+          var urgencyClass = 'u-' + shortUrgency;
+          var dotClass = shortUrgency;
           var critTag = iss.urgency === 'critical'
             ? '<span class="tag-crit">CRIT</span>'
             : '';

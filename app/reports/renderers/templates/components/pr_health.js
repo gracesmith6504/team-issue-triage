@@ -1,3 +1,14 @@
+function gatorBadge(label) {
+  if (!label) return '<span class="gator-badge gator-none">—</span>';
+  var stage = label.replace('gator:', '');
+  var cls = 'gator-other';
+  if (stage === 'merge-ready') cls = 'gator-green';
+  else if (stage === 'approval-needed') cls = 'gator-blue';
+  else if (stage === 'in-review' || stage === 'watch-pipeline') cls = 'gator-yellow';
+  else if (stage === 'blocked' || stage === 'follow-up-needed') cls = 'gator-red';
+  return '<span class="gator-badge ' + cls + '">' + esc(stage) + '</span>';
+}
+
 function buildPRHealth() {
   var section = el("div", "section");
   section.id = "pr-health";
@@ -13,7 +24,7 @@ function buildPRHealth() {
     {value: d.pr_health.total_open, label: "Open PRs", color: "var(--text-primary)", accent: "var(--border)"},
     {value: d.pr_health.awaiting_review, label: "Awaiting Review", color: "var(--status-waiting)", accent: "var(--status-waiting)"},
     {value: d.pr_health.stale_14d, label: "Stale (14d+)", color: "var(--urgency-high)", accent: "var(--urgency-high)"},
-    {value: d.pr_health.gator_coverage_pct + "%", label: "Gator Coverage", color: "var(--accent)", accent: "var(--accent)"}
+    {value: d.pr_health.avg_review_wait_days + "d", label: "Avg Review Wait", color: "var(--status-waiting)", accent: "var(--status-waiting)"}
   ];
   tileData.forEach(function(t) {
     var tile = el("div", "metric-tile");
@@ -50,7 +61,7 @@ function buildPRHealth() {
   header.appendChild(stuckTitle);
 
   var table = el("table", "data-table");
-  table.innerHTML = '<thead><tr><th>#</th><th>Title</th><th>Author</th><th>Age</th><th>Last Activity</th><th>Participants</th></tr></thead>';
+  table.innerHTML = '<thead><tr><th>#</th><th>Title</th><th>Author</th><th>Age</th><th>Last Activity</th><th>Gator</th><th>Participants</th></tr></thead>';
   var tbody = el("tbody");
   d.pr_health.stuck_prs.forEach(function(pr) {
     var participantLinks = (pr.participants || []).map(function(p) {
@@ -64,6 +75,7 @@ function buildPRHealth() {
       '<td><a href="https://github.com/' + esc(pr.author) + '" target="_blank">@' + esc(pr.author) + '</a></td>' +
       '<td style="font-weight:600;color:var(--urgency-high);">' + daysOpen + 'd</td>' +
       '<td style="font-size:12px;color:var(--text-muted);">' + esc(activityText) + '</td>' +
+      '<td>' + gatorBadge(pr.gator_label) + '</td>' +
       '<td style="font-size:13px;">' + participantLinks + '</td>';
     tbody.appendChild(tr);
   });

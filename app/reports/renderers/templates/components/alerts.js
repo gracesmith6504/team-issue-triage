@@ -13,7 +13,7 @@ function buildAlerts() {
 
   if (d.vouch_status) {
     var vouchCount = d.vouch_status.total_pending || 0;
-    var longestVouch = d.vouch_status.pending_vouches.length ? d.vouch_status.pending_vouches[d.vouch_status.pending_vouches.length - 1] : null;
+    var longestVouch = d.vouch_status.pending_vouches.length ? d.vouch_status.pending_vouches[0] : null;
     var blockedPRs = d.vouch_status.blocked_prs || [];
     var vouchText = '<strong>' + vouchCount + '</strong> contributors waiting for vouch';
     if (longestVouch) vouchText += ' - longest: <a href="' + esc(longestVouch.url) + '" target="_blank">@' + esc(longestVouch.author) + '</a> (' + longestVouch.wait_days + ' days)';

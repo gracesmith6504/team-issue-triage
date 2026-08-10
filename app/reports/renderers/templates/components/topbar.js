@@ -8,7 +8,7 @@ function buildTopBar() {
   var bar = document.getElementById("topbar");
 
   var left = el("div", "topbar-left");
-  left.innerHTML = '<span class="topbar-title">OpenShell Overview</span><span class="topbar-period">' + esc(d.summary.period_label) + '</span>';
+  left.innerHTML = '<a href="https://github.com/NVIDIA/OpenShell" target="_blank" class="topbar-title">OpenShell Overview</a><span class="topbar-period">' + esc(d.summary.period_label) + '</span>';
   bar.appendChild(left);
 
   var center = el("div", "topbar-center");

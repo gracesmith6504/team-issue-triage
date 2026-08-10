@@ -130,7 +130,29 @@ def read_results_as_triage(
     **kwargs,
 ) -> list[TriageResult]:
     records = read_results(log_path, **kwargs)
-    return [record_to_result(r) for r in records]
+
+    # Deduplicate by issue_number, keeping most recent assessment
+    seen: dict[int, dict] = {}
+    for r in records:
+        issue_num = r.get("issue_number")
+        if issue_num is None:
+            continue
+
+        # Keep the record with the latest assessed_at timestamp
+        existing = seen.get(issue_num)
+        if existing is None:
+            seen[issue_num] = r
+        else:
+            try:
+                existing_time = datetime.fromisoformat(existing.get("assessed_at", ""))
+                new_time = datetime.fromisoformat(r.get("assessed_at", ""))
+                if new_time > existing_time:
+                    seen[issue_num] = r
+            except (KeyError, ValueError):
+                # If timestamps invalid, keep the first one encountered
+                pass
+
+    return [record_to_result(r) for r in seen.values()]
 
 
 def format_review(records: list[dict]) -> str:

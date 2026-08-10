@@ -68,6 +68,14 @@ def _report_to_dict(
                 "title": issue["issue_title"],
                 "url": issue["issue_url"],
                 "urgency": issue["urgency"],
+                "issue_number": issue["issue_number"],
+                "issue_title": issue["issue_title"],
+                "issue_url": issue["issue_url"],
+                "author_login": issue.get("author_login", ""),
+                "days_open": issue.get("days_open", 0),
+                "has_linked_pr": issue.get("has_linked_pr", False),
+                "summary": issue.get("summary", ""),
+                "recommendation": issue.get("recommendation", ""),
             }
         )
 

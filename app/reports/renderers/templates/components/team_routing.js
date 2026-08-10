@@ -90,17 +90,45 @@ function buildTeamRouting() {
           '</div>';
 
         // Add issue rows for this area
-        areaGroup.forEach(function(iss) {
-          var row = el("div", "team-issue-row");
-          var prInfo = d.all_issues.find(function(ai) { return ai.issue_number === iss.number; });
-          var prIcon = (prInfo && prInfo.has_linked_pr) ? ' <svg width="14" height="14" viewBox="0 0 16 16" fill="#1A7F37" style="vertical-align:-2px;"><path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"/></svg>' : '';
-          var daysTag = (prInfo && prInfo.days_open != null) ? '<span style="color:var(--text-muted);font-size:12px;margin-left:auto;white-space:nowrap;">' + prInfo.days_open + 'd</span>' : '';
-          row.style.cssText = 'display:flex;align-items:center;gap:6px;';
-          row.innerHTML = makeUrgencyBadgeHTML(iss.urgency) +
-            ' <a href="' + esc(iss.url) + '" target="_blank">#' + iss.number + '</a>' + prIcon + ' ' +
-            '<span style="color:var(--text-secondary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(iss.title) + '</span>' + daysTag;
-          areaSection.appendChild(row);
+        var issuesDiv = el("div", "area-group-issues");
+        var issuesContainer = el("div", "issues");
+        var issues = areaGroup || [];
+        issues.forEach(function(iss) {
+          var row = el("article", "issue");
+          var urgencyClass = 'u-' + iss.urgency;
+          var dotClass = iss.urgency;
+          var critTag = iss.urgency === 'critical'
+            ? '<span class="tag-crit">CRIT</span>'
+            : '';
+
+          var detailsHTML = '';
+          if (iss.summary || iss.recommendation) {
+            detailsHTML = '<div class="issue-sub">';
+            if (iss.summary) detailsHTML += esc(iss.summary);
+            if (iss.recommendation) {
+              detailsHTML += '<div class="issue-rec">' + esc(iss.recommendation) + '</div>';
+            }
+            detailsHTML += '</div>';
+          }
+
+          row.className = 'issue ' + urgencyClass;
+          row.innerHTML =
+            '<div class="issue-top">' +
+              '<i class="dot ' + dotClass + '"></i>' +
+              critTag +
+              '<a class="num" href="' + esc(iss.issue_url) + '">#' + iss.issue_number + '</a>' +
+              '<span class="title"><a href="' + esc(iss.issue_url) + '">' + esc(iss.issue_title) + '</a></span>' +
+              '<span class="issue-meta">' +
+                (iss.has_linked_pr ? '<span class="pr">PR</span>' : '') +
+                (iss.author_login ? '<span>@' + esc(iss.author_login) + '</span>' : '') +
+                (iss.days_open != null ? '<span>' + iss.days_open + 'd</span>' : '') +
+              '</span>' +
+            '</div>' +
+            detailsHTML;
+          issuesContainer.appendChild(row);
         });
+        issuesDiv.appendChild(issuesContainer);
+        areaSection.appendChild(issuesDiv);
 
         issuesDiv.appendChild(areaSection);
       });

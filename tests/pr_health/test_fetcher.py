@@ -211,3 +211,59 @@ def test_api_error_on_velocity_returns_zero(mock_get, mock_dt):
     result = fetch_pr_health("test/repo", "fake-token")
     assert result.merge_velocity == 0
     assert result.merge_velocity_prev == 0
+
+
+@patch("app.pr_health.fetcher.datetime")
+@patch("app.pr_health.fetcher.requests.get")
+def test_last_activity_includes_comment_date(mock_get, mock_dt):
+    _patch_dt(mock_dt)
+    old_pr = _make_pr(1, created_days_ago=30, author="contributor")
+    review = {
+        "user": {"login": "reviewer1"},
+        "submitted_at": (NOW - timedelta(days=20)).isoformat(),
+    }
+    comment = {
+        "user": {"login": "reviewer2"},
+        "body": "Please address the feedback",
+        "created_at": (NOW - timedelta(days=3)).isoformat(),
+    }
+    commit = {
+        "commit": {"author": {"date": (NOW - timedelta(days=25)).isoformat()}},
+        "author": {"login": "contributor"},
+    }
+    mock_get.side_effect = [
+        _make_response([old_pr]),
+        _make_response([review]),
+        _make_response([comment]),
+        _make_response([commit]),
+        _make_response([]),
+    ]
+    result = fetch_pr_health("test/repo", "fake-token")
+    assert len(result.stuck_prs) == 1
+    assert "last comment 3d ago" in result.stuck_prs[0].last_activity
+
+
+@patch("app.pr_health.fetcher.datetime")
+@patch("app.pr_health.fetcher.requests.get")
+def test_last_activity_ignores_bot_comments(mock_get, mock_dt):
+    _patch_dt(mock_dt)
+    old_pr = _make_pr(1, created_days_ago=30, author="contributor")
+    bot_comment = {
+        "user": {"login": "github-actions[bot]"},
+        "body": "This PR is stale",
+        "created_at": (NOW - timedelta(days=1)).isoformat(),
+    }
+    commit = {
+        "commit": {"author": {"date": (NOW - timedelta(days=25)).isoformat()}},
+        "author": {"login": "contributor"},
+    }
+    mock_get.side_effect = [
+        _make_response([old_pr]),
+        _make_response([]),
+        _make_response([bot_comment]),
+        _make_response([commit]),
+        _make_response([]),
+    ]
+    result = fetch_pr_health("test/repo", "fake-token")
+    assert len(result.stuck_prs) == 1
+    assert "last comment" not in result.stuck_prs[0].last_activity

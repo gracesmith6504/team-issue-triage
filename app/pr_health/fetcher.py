@@ -170,10 +170,14 @@ def _find_stuck_prs(
                     last_review_date = rd
 
         participants: set[str] = set()
+        last_comment_date = None
         for c in comments:
             commenter = c["user"]["login"]
             if commenter != author and not commenter.endswith("[bot]"):
                 participants.add(commenter)
+                cd = _parse_dt(c["created_at"])
+                if last_comment_date is None or cd > last_comment_date:
+                    last_comment_date = cd
 
         last_author_commit = None
         for c in reversed(commits):
@@ -185,6 +189,9 @@ def _find_stuck_prs(
 
         days_since_author = (now - last_author_commit).days
         days_since_review = (now - last_review_date).days if last_review_date else age
+        days_since_comment = (
+            (now - last_comment_date).days if last_comment_date else None
+        )
 
         gator = None
         for label in pr.get("labels", []):
@@ -209,6 +216,8 @@ def _find_stuck_prs(
             activity_parts.append(f"last review {days_since_review}d ago")
         else:
             activity_parts.append("no reviews")
+        if days_since_comment is not None:
+            activity_parts.append(f"last comment {days_since_comment}d ago")
 
         results.append(
             PRStatus(

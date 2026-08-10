@@ -215,6 +215,27 @@ details.section-collapse[open] > summary::after { transform: rotate(90deg); }
 .trend.up { color: var(--urgency-high); }
 .team-band-issues { padding: 0 16px 12px; }
 
+.team-band-content { padding: 0 0 34px 24px; }
+
+.focus {
+  display: flex; gap: 16px; align-items: flex-start;
+  padding: 0 0 4px; margin: -4px 0 26px;
+}
+.focus-label {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--ink-4); padding-top: 2px;
+  flex: none; width: 64px;
+}
+.focus p {
+  font-size: 13.5px; color: var(--ink-2); max-width: 74ch;
+}
+.focus ol {
+  margin: 6px 0 0; padding-left: 16px;
+  font-size: 13px; color: var(--ink-2);
+}
+.focus li { margin-top: 2px; }
+
 .area {
   margin-top: 30px;
 }

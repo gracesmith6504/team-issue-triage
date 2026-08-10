@@ -58,6 +58,26 @@ function buildTeamRouting() {
       trendHTML;
     band.appendChild(header);
 
+    var content = el("div", "team-band-content");
+
+    // Add focus section if synthesis data exists
+    var synth = team.synthesis || {};
+    if (synth.focus_summary) {
+      var summaryDiv = el("div", "focus");
+      var summaryHTML = '<span class="focus-label">Focus</span><div>';
+      summaryHTML += '<p>' + esc(synth.focus_summary) + '</p>';
+      if (synth.actions && synth.actions.length) {
+        summaryHTML += '<ol>';
+        synth.actions.forEach(function(action) {
+          summaryHTML += '<li>' + esc(action) + '</li>';
+        });
+        summaryHTML += '</ol>';
+      }
+      summaryHTML += '</div>';
+      summaryDiv.innerHTML = summaryHTML;
+      content.appendChild(summaryDiv);
+    }
+
     var issues = d.team_issues[teamId] || [];
     if (issues.length) {
       var issuesDiv = el("div", "team-band-issues");
@@ -133,8 +153,9 @@ function buildTeamRouting() {
         issuesDiv.appendChild(areaSection);
       });
 
-      band.appendChild(issuesDiv);
+      content.appendChild(issuesDiv);
     }
+    band.appendChild(content);
     section.appendChild(band);
   });
   return section;

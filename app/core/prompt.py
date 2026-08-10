@@ -203,8 +203,7 @@ def _build_output_format() -> str:
         '  "secondary_confidence": 0.0-1.0,\n'
         '  "urgency": "critical/high/medium/low",\n'
         '  "urgency_reasoning": "Why this urgency level",\n'
-        '  "summary": "1-2 sentence issue summary",\n'
-        '  "recommendation": "What the primary team should do"\n'
+        '  "summary": "1-2 sentence issue summary"\n'
         "}\n\n"
         "IMPORTANT:\n"
         '- "reasoning" MUST come first — think before you classify\n'

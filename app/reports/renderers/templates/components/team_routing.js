@@ -66,7 +66,7 @@ function buildTeamRouting() {
       var byArea = {};
       issues.forEach(function(iss) {
         var prInfo = d.all_issues.find(function(ai) { return ai.issue_number === iss.number; });
-        var areaKey = (prInfo && prInfo.area) ? prInfo.area : "(no area)";
+        var areaKey = (prInfo && prInfo.area) ? prInfo.area : "uncategorized";
         if (!byArea[areaKey]) {
           byArea[areaKey] = [];
         }
@@ -94,11 +94,10 @@ function buildTeamRouting() {
           var row = el("div", "team-issue-row");
           var prInfo = d.all_issues.find(function(ai) { return ai.issue_number === iss.number; });
           var prIcon = (prInfo && prInfo.has_linked_pr) ? ' <svg width="14" height="14" viewBox="0 0 16 16" fill="#1A7F37" style="vertical-align:-2px;"><path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"/></svg>' : '';
-          var areaTag = (prInfo && prInfo.area) ? ' <span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;background:var(--accent-glow);color:var(--accent);font-weight:600;">' + esc(prInfo.area) + '</span>' : '';
           var daysTag = (prInfo && prInfo.days_open != null) ? '<span style="color:var(--text-muted);font-size:12px;margin-left:auto;white-space:nowrap;">' + prInfo.days_open + 'd</span>' : '';
           row.style.cssText = 'display:flex;align-items:center;gap:6px;';
           row.innerHTML = makeUrgencyBadgeHTML(iss.urgency) +
-            ' <a href="' + esc(iss.url) + '" target="_blank">#' + iss.number + '</a>' + areaTag + prIcon + ' ' +
+            ' <a href="' + esc(iss.url) + '" target="_blank">#' + iss.number + '</a>' + prIcon + ' ' +
             '<span style="color:var(--text-secondary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(iss.title) + '</span>' + daysTag;
           areaSection.appendChild(row);
         });

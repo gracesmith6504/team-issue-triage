@@ -222,6 +222,28 @@ details.section-collapse[open] > summary::after { transform: rotate(90deg); }
 .team-issue-row a { color: var(--accent); text-decoration: none; }
 .team-issue-row a:hover { text-decoration: underline; }
 
+.area {
+  margin-top: 30px;
+}
+.area:first-of-type { margin-top: 0; }
+.area-head {
+  display: flex; align-items: center; gap: 10px;
+  position: sticky; top: 0; z-index: 2;
+  background: linear-gradient(var(--bg-body) 82%, rgba(247,248,249,0));
+  padding: 6px 0 8px;
+}
+.area-name {
+  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--text-primary);
+}
+.area-n {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-4);
+}
+.area-rule {
+  flex: 1; height: 1px; background: var(--hair);
+}
+
 .metric-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
 .metric-tile {
   background: var(--bg-card); border-radius: var(--radius-lg);

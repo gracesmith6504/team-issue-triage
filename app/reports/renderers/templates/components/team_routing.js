@@ -9,27 +9,53 @@ function buildTeamRouting() {
     if (!team) return;
     var band = el("details", "team-band");
     band.dataset.team = teamId;
-    var color = tc(teamId);
     var urgencies = team.by_urgency || {};
     var total = team.total;
     var trend = team.trend || "0";
-    var trendClass = trend.charAt(0) === "+" ? "trend-up" : (trend.charAt(0) === "-" ? "trend-down" : "trend-flat");
 
-    var urgencyBadges = "";
-    ["critical","high","medium","low"].forEach(function(u) {
-      var count = urgencies[u] || 0;
-      if (count > 0) {
-        urgencyBadges += ' ' + makeUrgencyBadgeHTML(u) + '<span style="font-size:13px;font-weight:600;color:var(--text-secondary);margin:0 8px 0 4px;">' + count + '</span>';
-      }
-    });
+    // Calculate percentages for urgency bar chart
+    var critCount = urgencies["critical"] || 0;
+    var highCount = urgencies["high"] || 0;
+    var medCount = urgencies["medium"] || 0;
+    var lowCount = urgencies["low"] || 0;
+
+    var critPct = total > 0 ? (critCount / total * 100) : 0;
+    var highPct = total > 0 ? (highCount / total * 100) : 0;
+    var medPct = total > 0 ? (medCount / total * 100) : 0;
+    var lowPct = total > 0 ? (lowCount / total * 100) : 0;
+
+    // Build urgency mix bar chart
+    var tooltipText = critCount + ' critical · ' + highCount + ' high · ' +
+                      medCount + ' medium · ' + lowCount + ' low';
+    var mixHTML = '<span class="mix" title="' + esc(tooltipText) + '">';
+    if (critPct > 0) mixHTML += '<i class="crit" style="width:' + critPct + '%"></i>';
+    if (highPct > 0) mixHTML += '<i class="high" style="width:' + highPct + '%"></i>';
+    if (medPct > 0) mixHTML += '<i class="med" style="width:' + medPct + '%"></i>';
+    if (lowPct > 0) mixHTML += '<i class="low" style="width:' + lowPct + '%"></i>';
+    mixHTML += '</span>';
+
+    // Build simplified trend
+    var trendClass = "";
+    var trendText = "";
+    if (trend.charAt(0) === "+") {
+      trendClass = "up";
+      trendText = "↑ " + trend.substring(1);
+    } else if (trend.charAt(0) === "-") {
+      trendText = "↓ " + trend.substring(1);
+    } else if (trend === "flat" || trend === "0") {
+      trendText = "→ flat";
+    }
+    var trendHTML = trendText
+      ? '<span class="trend ' + trendClass + '">' + trendText + '</span>'
+      : '';
 
     var header = el("summary", "team-band-header");
     header.innerHTML =
-      '<span class="team-band-badge" style="background:' + color + '20;color:' + color + ';">' + esc(teamId === "none" ? "Unassigned" : teamId) + '</span>' +
-      '<span class="team-band-count">' + total + '</span>' +
-      (trend !== "0" ? '<span class="team-band-trend ' + trendClass + '">' + esc(trend) + '</span>' : '') +
-      '<span style="flex:1;display:flex;align-items:center;margin:0 12px;">' + urgencyBadges + '</span>' +
-      '<span class="team-band-chevron">&#9654;</span>';
+      '<span class="caret">&#9654;</span>' +
+      '<span class="team-name">' + esc(teamId === "none" ? "Unassigned" : team.team_name || teamId) + '</span>' +
+      '<span class="team-total">' + total + '</span>' +
+      mixHTML +
+      trendHTML;
     band.appendChild(header);
 
     var issues = d.team_issues[teamId] || [];

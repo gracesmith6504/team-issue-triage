@@ -216,7 +216,10 @@ def _find_stuck_prs(
             activity_parts.append(f"last review {days_since_review}d ago")
         else:
             activity_parts.append("no reviews")
-        if days_since_comment is not None:
+        most_recent_other = min(
+            d for d in [days_since_author, days_since_review] if d is not None
+        )
+        if days_since_comment is not None and days_since_comment < most_recent_other:
             activity_parts.append(f"last comment {days_since_comment}d ago")
 
         results.append(

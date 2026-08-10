@@ -101,6 +101,16 @@ function buildTeamRouting() {
       // Render each area group
       areaKeys.forEach(function(areaKey) {
         var areaGroup = byArea[areaKey];
+
+        // Sort issues by urgency: critical > high > medium > low
+        var urgencyOrder = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3};
+        areaGroup.sort(function(a, b) {
+          var aOrder = urgencyOrder[a.urgency] !== undefined ? urgencyOrder[a.urgency] : 99;
+          var bOrder = urgencyOrder[b.urgency] !== undefined ? urgencyOrder[b.urgency] : 99;
+          if (aOrder !== bOrder) return aOrder - bOrder;
+          return a.issue_number - b.issue_number; // Then by issue number
+        });
+
         var areaSection = el("div", "area");
 
         areaSection.innerHTML = '<div class="area-head">' +

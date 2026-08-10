@@ -14,7 +14,11 @@ function buildAlerts() {
   if (d.vouch_status) {
     var vouchCount = d.vouch_status.total_pending || 0;
     var longestVouch = d.vouch_status.pending_vouches.length ? d.vouch_status.pending_vouches[d.vouch_status.pending_vouches.length - 1] : null;
-    alertData.push({color: "#e16f24", text: '<strong>' + vouchCount + '</strong> contributors waiting for vouch' + (longestVouch ? ' - longest: <a href="' + esc(longestVouch.url) + '" target="_blank">@' + esc(longestVouch.author) + '</a> (' + longestVouch.wait_days + ' days)' : '')});
+    var blockedPRs = d.vouch_status.blocked_prs || [];
+    var vouchText = '<strong>' + vouchCount + '</strong> contributors waiting for vouch';
+    if (longestVouch) vouchText += ' - longest: <a href="' + esc(longestVouch.url) + '" target="_blank">@' + esc(longestVouch.author) + '</a> (' + longestVouch.wait_days + ' days)';
+    if (blockedPRs.length) vouchText += ' - <strong>' + blockedPRs.length + '</strong> PR' + (blockedPRs.length > 1 ? 's' : '') + ' blocked';
+    alertData.push({color: "#e16f24", text: vouchText});
   }
 
   alertData.forEach(function(a) {

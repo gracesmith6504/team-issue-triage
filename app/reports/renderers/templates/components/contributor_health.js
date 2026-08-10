@@ -88,6 +88,20 @@ function buildContributorHealth() {
 
   wrap.appendChild(el("div", "vouch-note", "Items can be dismissed if the team has intentionally deferred a vouch decision."));
 
+  var blockedPRs = d.vouch_status.blocked_prs || [];
+  if (blockedPRs.length) {
+    var bpTitle = el("div", "stacked-bar-label", "PRs Blocked by Missing Vouch");
+    wrap.appendChild(bpTitle);
+    blockedPRs.forEach(function(bp) {
+      var row = el("div", "blocked-contributor");
+      row.innerHTML =
+        '<div class="bc-header"><span class="bc-author"><a href="https://github.com/' + esc(bp.author) + '" target="_blank">@' + esc(bp.author) + '</a></span></div>' +
+        '<div class="bc-meta">PR <a href="' + esc(bp.pr_url) + '" target="_blank">#' + bp.pr_number + '</a>: ' + esc(bp.pr_title) + ' - vouch pending ' + bp.vouch_wait_days + ' days</div>' +
+        '<div class="bc-links"><a href="' + esc(bp.pr_url) + '" target="_blank">View PR</a><a href="' + esc(bp.vouch_url) + '" target="_blank">Vouch Discussion</a></div>';
+      wrap.appendChild(row);
+    });
+  }
+
   wrap.addEventListener("toggle", function() { state.collapsed["contributor-health"] = wrap.open; saveState(state); });
   section.appendChild(wrap);
   return section;

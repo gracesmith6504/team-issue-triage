@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: issue-triage-refresh
+spec:
+  schedule: "0 9 * * 1"  # Monday 9am UTC
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: triage
+            image: quay.io/rh-ee-grasmith/team-issue-triage:latest
+            args: ["--mode", "refresh"]
+            envFrom:
+            - configMapRef:
+                name: triage-config
+            - secretRef:
+                name: triage-secrets
+            volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: gcp-credentials
+              mountPath: /etc/gcp
+              readOnly: true
+          volumes:
+          - name: data
+            persistentVolumeClaim:
+              claimName: triage-data
+          - name: gcp-credentials
+            secret:
+              secretName: gcp-vertex-credentials
+          restartPolicy: OnFailure

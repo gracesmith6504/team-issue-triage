@@ -119,12 +119,18 @@ def _run_triage_cycle(app: FastAPI) -> None:
         config = app.state.config
         logger.info("Starting hourly triage cycle")
 
-        from app.triage import run_triage
+        from app.triage import check_closed_issues, run_triage
 
         try:
             run_triage(config)
         except Exception:
             logger.exception("Triage failed")
+
+        # Check for closed issues hourly
+        try:
+            check_closed_issues(config)
+        except Exception:
+            logger.exception("Closed-issue check failed")
 
         results = read_results_as_triage(config.assessment_log_path)
         app.state.issue_count = len(results)

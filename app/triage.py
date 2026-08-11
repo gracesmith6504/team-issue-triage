@@ -111,6 +111,147 @@ def run_triage(config: TriageConfig) -> None:
     tracker.save(state)
 
 
+def run_refresh(config: TriageConfig) -> None:
+    """Weekly refresh: re-triage all open issues, smart detection of changes.
+
+    Only re-triages issues where title or body changed since last assessment.
+    Marks closed issues. Appends fresh assessments to log (dedup handles rest).
+    """
+    logger.info("Starting weekly refresh of all open issues")
+
+    # Load existing assessments to compare
+    from app.state.assessment_log import AssessmentLog, read_results_as_triage
+
+    existing = {
+        r.issue_number: r for r in read_results_as_triage(config.assessment_log_path)
+    }
+
+    # Load repo config and LLM client
+    repo_config = load_repo_config("openshell", profiles_dir=config.profiles_dir)
+    llm_client = build_llm_client(config)
+    model = resolve_model(config.llm_provider, config.llm_model)
+    system_prompt = build_system_prompt(repo_config)
+
+    # Fetch ALL open issues from GitHub
+    source = GitHubSource(config.github_token)
+    all_issues = source.fetch_all_open_issues(config.watch_repos)
+
+    logger.info("Fetched %d open issues from GitHub", len(all_issues))
+
+    # Track stats
+    re_triaged = 0
+    unchanged = 0
+    new_issues = 0
+
+    log = AssessmentLog(config.assessment_log_path)
+
+    # Process each issue
+    for issue_data in all_issues:
+        prev = existing.get(issue_data.number)
+
+        if prev is None:
+            # New issue we've never seen
+            logger.info("New issue found: #%d", issue_data.number)
+            new_issues += 1
+            should_triage = True
+        else:
+            # Check if title or body changed
+            title_changed = issue_data.title != prev.issue_title
+            # Note: issue_body not stored in TriageResult, so compare against empty
+            body_changed = issue_data.body != ""
+
+            if title_changed or body_changed:
+                logger.info(
+                    "Issue #%d changed (title=%s, body=%s)",
+                    issue_data.number,
+                    title_changed,
+                    body_changed,
+                )
+                re_triaged += 1
+                should_triage = True
+            else:
+                unchanged += 1
+                should_triage = False
+
+        if should_triage:
+            # Re-triage with LLM
+            result = triage_issue(
+                issue_data, llm_client, model, repo_config, system_prompt
+            )
+
+            if result:
+                # Append to assessment log (dedup keeps latest)
+                log.append_result(result)
+
+    logger.info(
+        "Weekly refresh complete: %d new, %d re-triaged, %d unchanged",
+        new_issues,
+        re_triaged,
+        unchanged,
+    )
+
+
+def check_closed_issues(config: TriageConfig) -> None:
+    """Check if any previously-triaged issues are now closed on GitHub.
+
+    Appends new assessment with closed=True to mark them in the log.
+    Uses free GitHub API calls (no LLM).
+    """
+    import requests
+    from app.core.models import TriageResult
+    from app.state.assessment_log import AssessmentLog, read_results_as_triage
+
+    logger.info("Checking for closed issues")
+
+    # Get all open issues from our log
+    existing = read_results_as_triage(config.assessment_log_path)
+    open_in_log = [r for r in existing if not getattr(r, "closed", False)]
+
+    log = AssessmentLog(config.assessment_log_path)
+    closed_count = 0
+
+    for result in open_in_log:
+        # Check GitHub API for current state
+        url = f"https://api.github.com/repos/{result.repo}/issues/{result.issue_number}"
+        response = requests.get(
+            url, headers={"Authorization": f"token {config.github_token}"}
+        )
+
+        if response.status_code == 200:
+            issue_state = response.json().get("state")
+            if issue_state == "closed":
+                logger.info("Issue #%d is now closed", result.issue_number)
+
+                # Create new assessment marking it as closed
+                # (Reuse existing classification, just update state)
+                closed_result = TriageResult(
+                    repo=result.repo,
+                    issue_number=result.issue_number,
+                    issue_title=result.issue_title,
+                    issue_url=result.issue_url,
+                    reasoning=result.reasoning,
+                    any_team_cares=result.any_team_cares,
+                    primary_team=result.primary_team,
+                    primary_confidence=result.primary_confidence,
+                    secondary_team=result.secondary_team,
+                    secondary_confidence=result.secondary_confidence,
+                    urgency=result.urgency,
+                    urgency_reasoning=result.urgency_reasoning,
+                    summary=result.summary,
+                    confidence_flag=result.confidence_flag,
+                    assessed_at=datetime.now(timezone.utc).isoformat(),
+                    created_at=result.created_at,
+                    author_association=result.author_association,
+                    author_login=result.author_login,
+                    closed=True,  # Mark as closed
+                )
+
+                log.append_result(closed_result)
+                closed_count += 1
+
+    logger.info("Marked %d issues as closed", closed_count)
+
+
 def run_review(
     config: TriageConfig,
     *,

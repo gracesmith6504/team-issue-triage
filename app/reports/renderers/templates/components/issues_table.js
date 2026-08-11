@@ -4,11 +4,11 @@ var activeArea = "";
 var searchQuery = "";
 
 function matchesFilters(issue) {
-  // Time period filter
+  // Time period filter (by issue creation date on GitHub)
   if (state.dateRange && state.dateRange !== "All") {
     var now = new Date();
-    var assessedDate = new Date(issue.assessed_at);
-    var hoursDiff = (now - assessedDate) / (1000 * 60 * 60);
+    var createdDate = new Date(issue.created_at);
+    var hoursDiff = (now - createdDate) / (1000 * 60 * 60);
 
     if (state.dateRange === "24h" && hoursDiff > 24) return false;
     if (state.dateRange === "7d" && hoursDiff > 24 * 7) return false;

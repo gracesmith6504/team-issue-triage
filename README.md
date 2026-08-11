@@ -4,18 +4,32 @@ Multi-team GitHub issue triage agent for OpenShell. Classifies which of 6 Red Ha
 
 ## How It Works
 
+The system runs two cycles:
+
+**Hourly triage** — fast, real-time issue classification and notifications:
 ```
 GitHub Issues → Signal Extraction → LLM Classification → Confidence Rules → Notify
 ```
 
-1. **Fetch** — pulls all new issues from watched repos via GitHub API, skipping already-seen issues. Extracts `author_association` and assignees from the same API response (no extra calls)
+1. **Fetch** — pulls all new issues from watched repos via GitHub API, skipping already-seen issues
 2. **Extract signals** — parses conventional commit title prefixes (`feat(cli):`) and filters labels (`area:*`, `topic:*`)
-3. **Classify** — one Claude Sonnet call per issue with all 6 team descriptions, a routing table, and calibration examples
+3. **Classify** — one Claude Sonnet call per new issue with all 6 team descriptions, routing table, and calibration examples
 4. **Apply confidence rules** — auto-assign (>0.8), flag multi-team (gap <0.2), flag uncertain (<0.5), force-none override (<0.75)
 5. **Notify** — routes critical/high issues to team Slack channels immediately, medium/low accumulate for daily digest
-6. **Report** — weekly bird's eye view with team breakdown, area heatmap, duplicate detection, and LLM-generated narrative
-7. **Dashboard** — live HTML dashboard served via FastAPI, with linked PR detection, PR health tracking, vouch status monitoring, and historical trend sparklines
-8. **Metrics** — each triage run appends a snapshot to JSONL storage; the last 7 snapshots feed dashboard sparklines showing urgency, review backlog, vouch, and velocity trends
+6. **Log** — appends triage results to JSONL assessment log
+
+**Daily dashboard** — comprehensive synthesis and reporting (default: 9am UTC):
+
+1. **Read** — loads all triaged issues from assessment log
+2. **Synthesize** — generates team focus summaries and action items using LLM (one call per team)
+3. **Generate** — creates bird's eye view report with team breakdown, area heatmap, duplicate detection, and narrative
+4. **Enrich** — fetches PR health, vouch status, and metrics sparklines
+5. **Render** — serves live HTML dashboard via FastAPI with team synthesis, linked PR detection, and historical trends
+
+**LLM Costs:**
+- Hourly: 1 Claude Sonnet call per new issue (typically 5-8 issues/day)
+- Daily: 6-7 Claude Sonnet calls for team synthesis + narrative (once per day)
+- Total: ~12-15 LLM calls/day for typical OpenShell volume
 
 ### Teams
 
@@ -69,12 +83,13 @@ export LLM_PROVIDER="vertex"
 export VERTEX_PROJECT_ID="your-gcp-project"
 export WATCH_REPOS="NVIDIA/OpenShell"
 
-python -m app --mode triage          # Classify new issues
+python -m app --mode triage          # Classify new issues (hourly)
 python -m app --mode digest          # Send daily digest (medium/low)
 python -m app --mode review --team agent-ops --since 48   # Review recent results
-python -m app --mode report          # Generate bird's eye view report
+python -m app --mode report          # Generate full report with synthesis
 python -m app --mode report --output report.html          # Write HTML report to file
 python -m app --mode serve           # Start live dashboard (FastAPI on port 8080)
+                                     # Runs hourly triage + daily report generation
 ```
 
 ## Configuration
@@ -98,6 +113,7 @@ All configuration is via environment variables:
 | `METRICS_PATH` | `/data/metrics.jsonl` | JSONL file for historical metrics snapshots |
 | `PR_HEALTH_ENABLED` | `true` | Enable PR health tracking |
 | `VOUCH_TRACKING_ENABLED` | `true` | Enable vouch status monitoring |
+| `REPORT_SCHEDULE_HOUR` | `9` | Hour (UTC) to generate daily dashboard report |
 | `SLACK_WEBHOOK_AGENT_OPS` | — | Per-team Slack webhooks referenced from team YAMLs |
 
 ## Team Profiles
@@ -143,9 +159,22 @@ notifications:
 
 The repo config also defines `no_team_prefixes` (build, ci, tui, rfc, etc.) for issues no Red Hat team owns, `confidence_thresholds`, and `none_examples` for calibration.
 
+## Dashboard
+
+The live dashboard includes:
+
+1. **Team routing** — Issues classified to agent-ops, acp, ai-safety, kata, agentdev, or dashboard teams
+2. **Team synthesis** — AI-generated focus summaries (2 sentences) and top 3 action items per team
+3. **Urgency classification** — Critical, high, medium, low sorted within each area
+4. **PR Health** — Upstream PR responsiveness tracking
+5. **Contributor Health** — Vouch status and pending contributor monitoring
+6. **Historical trends** — Sparklines showing urgency, review backlog, and velocity over last 7 days
+
+Dashboard regenerates daily at 9am UTC (configurable via `REPORT_SCHEDULE_HOUR`).
+
 ## Bird's Eye View Report
 
-Weekly cross-team report generated from the JSONL assessment log:
+Cross-team report generated from the JSONL assessment log:
 
 ```
 OpenShell Triage — Bird's Eye View

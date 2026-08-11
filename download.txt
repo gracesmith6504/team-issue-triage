@@ -1,0 +1,626 @@
+﻿📝 Notes
+Jul 28, 2026
+Grace / Dimitri
+Invited Grace Smith Dimitri Saridakis
+Attachments Grace / Dimitri Notes - Grace / Dimitri
+Meeting records Transcript 
+
+
+
+
+Summary
+Meeting reviewed technical documentation, infrastructure deployments, and development tools alongside performance feedback for internship milestones.
+
+Infrastructure and Documentation
+Teams successfully configured shared clusters while adhering to specific versioning requirements. Adherence to internal processes for bug reporting was reinforced.
+
+Tooling and Automation
+Development on a GitHub triage agent using Vertex AI continues to show promise for managing backlog volume. Initial challenges with CI review bots were identified as testing artifacts.
+
+Presentation and Future Goals
+Constructive feedback on demo delivery highlighted the need for audience tailoring. Future internship focus includes finalizing the triage agent and verifying end-to-end documentation.
+
+
+
+
+Decisions
+Aligned
+* Dev preview documentation verification strategy The dev preview documentation verification strategy is set to include end-to-end validation against the full stack versioning to ensure system compatibility.
+
+
+We've updated the Decisions section using your feedback.
+Let us know what you think: Helpful or Not Helpful
+
+
+
+
+Next steps
+* [Grace Smith] Send Cluster Details: Share the cluster setup file and the associated Jira ticket in the team Slack channel.
+* [Grace Smith] Link Slack Message: Provide a reference to the Slack message posted by Barca regarding the agent sandbox operator deployment.
+* [Grace Smith] Test Triage Agent: Perform further testing of the GitHub issue triage agent locally.
+* [Grace Smith] Verify Documentation: Run through the dev preview documentation end to end to ensure compatibility across the entire stack. Document any issues discovered during the verification process.
+* [Dimitri Saridakis] Notify Internship Update: Communicate the status regarding the internship end date once internal channels provide clarification.
+
+
+
+
+Details
+* Ansible Automation Platform Bug Reporting: Grace Smith reported that Naomi from the Dublin office requested assistance filing a bug for the Ansible Automation Platform (AAP) documentation. Although Grace Smith had initially performed the implementation to fix the issue, they were instructed that internal team processes required them to only file the bug report rather than implement the fix themselves (00:06:21).
+* Shared Cluster and Sandbox Deployment: Grace Smith and Ardum successfully configured a shared cluster for the team and agents, which was completed last Thursday and Friday (00:08:07). Dimitri Saridakis emphasized the technical requirement to ensure that the Agent Sandbox Operator and Kata containers—which serve as the sandbox pods for the Open Shell Kata compute driver—are running on verified, pinned versions for the Dev Preview. Dimitri Saridakis requested that Grace Smith link the relevant Slack documentation to ensure consistency (00:09:15) (00:12:50).
+* GitHub Pull Request and Gator Agent Challenges: Grace Smith described the difficulties encountered during a recent pull request process, specifically involving the "gator agent," which is a CI review bot on Open Shell. Grace Smith engaged in approximately ten rounds of revisions due to the agent flagging out-of-scope issues; after consulting with John T. Myers, it was clarified that the agent was undergoing testing, which caused the excessive feedback (00:14:21).
+* GitHub Issue Triage Agent Development: Grace Smith has been experimenting with an agent to monitor GitHub issues, utilizing Claude via Vertex AI to analyze new issues and assign a 1-to-5 score based on urgency, clarity, and team relevance (00:15:26). Dimitri Saridakis noted that the Open Shell repository currently has 289 open issues and expressed that a triage tool could be highly valuable for managing this volume and potentially routing tasks to specific teams (00:18:44). Dimitri Saridakis encouraged Grace Smith to continue testing this tool locally, with the potential goal of proposing it for upstream use (00:22:09).
+* Demo Presentation Feedback: Dimitri Saridakis provided constructive feedback on Grace Smith's recent demo, commending the delivery while suggesting that they include more context regarding the project's origins and purpose in future presentations (00:24:16). Dimitri Saridakis advised that presenters should gauge the audience's technical knowledge at the beginning of a session to effectively tailor the content (00:25:18). Additionally, Dimitri Saridakis relayed that Roland, a distinguished engineer, provided positive feedback on the demonstration (00:27:04).
+* Future Internship Tasks: Regarding the remainder of the internship, Dimitri Saridakis directed Grace Smith to continue refining the triage agent and to conduct an end-to-end verification of the Dev Preview documentation (00:28:24) (00:30:27). This work requires verifying that the full stack—including the Open Shell project and the Agent Sandbox Operator—functions correctly and ensuring any discrepancies are documented (00:31:33). Dimitri Saridakis stated they are still awaiting confirmation regarding the administrative timeline for the internship's conclusion (00:29:29).
+
+
+
+
+You should review Gemini's notes to make sure they're accurate. Get tips and learn how Gemini takes notes
+How is the quality of these specific notes? Take a short survey to let us know your feedback, including how helpful the notes were for your needs.
+📖 Transcript
+Jul 28, 2026
+Grace / Dimitri - Transcript
+00:04:43
+
+
+Dimitri Saridakis: How are you?
+Grace Smith: Hello,
+Dimitri Saridakis: Grace, how's things?
+Grace Smith: good. How are you?
+Dimitri Saridakis: Oh, I'm not too bad, thank you. Going to catch up with everything,
+Grace Smith: Yeah,
+Dimitri Saridakis: but yes,
+Grace Smith: nice.
+Dimitri Saridakis: there we go. How are you getting
+Grace Smith: Yeah, good. Yeah.
+Dimitri Saridakis: on?
+Grace Smith: Sorry if you can hear my dog in the back. Um, but yeah, all good.
+Dimitri Saridakis: No, I can't hear any dog.
+Grace Smith: Uh,
+Dimitri Saridakis: What kind of dog have you?
+Grace Smith: uh, cockp.
+Dimitri Saridakis: Oh,
+Grace Smith: Yeah.
+Dimitri Saridakis: lovely little hairy thing.
+Grace Smith: Yeah. Yeah. And then we got um a cat as well a few months ago, so she's my prized possession.
+Dimitri Saridakis: Do they get on?
+Grace Smith: Um you know what they're actually they tolerate each other like they're not they don't fight anymore.
+Dimitri Saridakis: That's good.
+Grace Smith: Um when Yeah.
+Dimitri Saridakis: That's a positive.
+Grace Smith: They kind of they kind of pretend not to like each other, you know, that kind of way.
+
+
+
+
+00:05:25
+
+
+Grace Smith: But then when no one's looking Yeah.
+Dimitri Saridakis: Is Hannah the cat's name or the dog's name?
+Grace Smith: Um neither. Sorry.
+Dimitri Saridakis: Oh,
+Grace Smith: Um Oh,
+Dimitri Saridakis: you just said Hannah.
+Grace Smith: no. Sorry. Um, Bear is the cat's name and then Sully's the dog.
+Dimitri Saridakis: H. Okay. Okay. I enjoy animals with human names.
+Grace Smith: Yeah.
+Dimitri Saridakis: I don't know why. Um, it's always been a thing. Was like, "Go over here, Scott. Uh, get down, you bastard." But I've done it. Um, where are we? Let me see. I'm opening up the dock. I'm also trying to juggle um kids and 45 million Slack threads and what have you at the minute
+Grace Smith: Oh no.
+Dimitri Saridakis: at the same time. So bear with me.
+Grace Smith: Yeah.
+Dimitri Saridakis: Uh file a AA
+Grace Smith: Yeah. So, um Naomi,
+Dimitri Saridakis: what?
+Grace Smith: a woman in the Dublin office. I just I kind of have lunch with a few of them sometimes.
+
+
+
+
+00:06:21
+
+
+Grace Smith: Um she just asked me to do something for her and I did it. But yeah,
+Dimitri Saridakis: What's
+Grace Smith: it was it was um it's the team she works on,
+Dimitri Saridakis: AAP?
+Grace Smith: Anible Automation Platform.
+Dimitri Saridakis: Oh, okay. Very
+Grace Smith: Yeah. Um and yeah,
+Dimitri Saridakis: good.
+Grace Smith: it was just like a a really small kind of bug in their do online like documents. Um so she got me to like file
+Dimitri Saridakis: Okay,
+Grace Smith: it.
+Dimitri Saridakis: this one. Um, are you going to pick it up and finish it off?
+Grace Smith: Um, I'm finished it.
+Dimitri Saridakis: Oh,
+Grace Smith: Um,
+Dimitri Saridakis: like eating like Have you done the implementation?
+Grace Smith: yeah.
+Dimitri Saridakis: I I don't want to. You can eat your stuff.
+Grace Smith: Say it again.
+Dimitri Saridakis: No, I'm sorry. I'm talking to my daughter.
+Grace Smith: I'm
+Dimitri Saridakis: She's trying to make me eat the rest of her leftover breakfast.
+Grace Smith: sorry.
+Dimitri Saridakis: Um Oh, so you see you like you you put up the PR and everything for it.
+
+
+
+
+00:07:19
+
+
+Grace Smith: Yeah.
+Dimitri Saridakis: Awesome.
+Grace Smith: It's all done.
+Dimitri Saridakis: That's in Python, is it?
+Grace Smith: Um, no. It was literally Oh, sorry. I get what you mean now. I had I wasn't allowed to do it. I had to just file a bug like tell them that there's something
+Dimitri Saridakis: Uh, okay. Yeah,
+Grace Smith: wrong.
+Dimitri Saridakis: that that's what I was that's what I was wondering. And did you go ahead and like fix the
+Grace Smith: No. Yeah. I wanted to,
+Dimitri Saridakis: bug?
+Grace Smith: but I think like they have their own people like there's a process you have to do.
+Dimitri Saridakis: Interesting. I would have thought that like Anible is just like any other open source ticket. You can just go ahead
+Grace Smith: Yeah,
+Dimitri Saridakis: and
+Grace Smith: cuz um Naomi like tried to fix the book herself and then I think she was told that you just have to file it and someone else does it.
+Dimitri Saridakis: do it. Use somebody else's tokens.
+
+
+
+
+00:08:07
+
+
+Grace Smith: Yeah.
+Dimitri Saridakis: Okay.
+Grace Smith: Yes.
+Dimitri Saridakis: Interesting. Um, cool. Hold on. What's What got
+Grace Smith: Thanks. Um yeah,
+Dimitri Saridakis: next?
+Grace Smith: so then Ardum and I set up the shared cluster for the team
+Dimitri Saridakis: Oh, yeah.
+Grace Smith: um for the agents. Um so we did that I think Thursday and Friday last week. Um and that's yeah all working.
+Dimitri Saridakis: Um, excuse me. Did you set that up with the Asian sandbox?
+Grace Smith: Uh
+Dimitri Saridakis: Um, and like CR like the the kata CRDs.
+Grace Smith: say that again. Sorry.
+Dimitri Saridakis: Did you set it up with like the Asian sandbox operator and you have like the the sandboxes are ka catapods? the
+Grace Smith: I think so.
+Dimitri Saridakis: ATA
+Grace Smith: Um, I haven't heard of kata now, but I could
+Dimitri Saridakis: containers are the actual um whatchamacallit the actual kind of sandbox environment.
+Grace Smith: Okay.
+Dimitri Saridakis: the actual sandbox
+Grace Smith: Um, I can show you.
+Dimitri Saridakis: pods.
+Grace Smith: I have a file of what I did.
+
+
+
+
+00:09:15
+
+
+Grace Smith: Um, I can send it in chat.
+Dimitri Saridakis: Uh, send it in Slack if you don't mind.
+Grace Smith: Slack.
+Dimitri Saridakis: Just keep it
+Grace Smith: Yeah.
+Dimitri Saridakis: persistent.
+Grace Smith: Where are you? And then I'll send the Jira as well.
+Dimitri Saridakis: H yeah sound because I definitely want to like for the tech preview we definitely want to ensure that we we have the pinned version of sorry for dev preview we have the pinned version of the kind of contain of the agent sandbox operator and like which so want to ensure that the full stack you know we have versions pinned versions of the entire stack that work with each
+Grace Smith: Yeah.
+Dimitri Saridakis: other so this is very very valuable Um, if I'm not mistaken,
+Grace Smith: Okay.
+Dimitri Saridakis: Barca put up a um Bara put up a message in the team Slack surrounding this uh um I don't know if anybody picked that up, but you should definitely link it underneath here if you've if you've deployed it with the with the agent sandbox operator.
+Grace Smith: Okay.
+
+
+
+
+00:10:57
+
+
+Dimitri Saridakis: Um,
+Grace Smith: Well,
+Dimitri Saridakis: where are we going? I can't um that one. Jesus Christ.
+Grace Smith: I actually got clouds to work with Slack now.
+Dimitri Saridakis: Where is this? Oh,
+Grace Smith: I've been Yeah.
+Dimitri Saridakis: did you? I haven't I still haven't um um I still haven't integrated it.
+Grace Smith: Yeah.
+Dimitri Saridakis: I don't f****** time.
+Grace Smith: Yeah.
+Dimitri Saridakis: How How does it
+Grace Smith: Um I've There's some I'll try to find it actually.
+Dimitri Saridakis: work?
+Grace Smith: Um, I just searched in the like the search bar at the top of Slack like for someone else talking about how to do it. Um and
+Dimitri Saridakis: So, Daniel's actually picked this up.
+Grace Smith: Okay.
+Dimitri Saridakis: Uh, I found the things. It ties. I just tagged you in it there. So you should see it at some stage.
+Grace Smith: Yeah.
+Dimitri Saridakis: No worries. Yeah,
+Grace Smith: Excellent.
+Dimitri Saridakis: because if you read that um like like kind of containers are the sandbox um the actual sandbox odd, right?
+
+
+
+
+00:12:50
+
+
+Dimitri Saridakis: So,
+Grace Smith: Okay.
+Dimitri Saridakis: and then the agent runtime oper agent sandbox operator f****** terribly named um project. Um that's essentially the controller for head pods, right? So, and then that's what Open Shell uses as the like when it uses
+Grace Smith: Okay.
+Dimitri Saridakis: the the KA's compute driver, it uses the agent sandbox operator to provision those sandbox pods.
+Grace Smith: Okay.
+Dimitri Saridakis: Does that make sense?
+Grace Smith: I see. Yeah. Thank you.
+Dimitri Saridakis: Yeah, no worries. Um, so that's why that's quite um yeah, we need to ensure that that whole stack is working as
+Grace Smith: Yeah. Okay.
+Dimitri Saridakis: expected.
+Grace Smith: Yeah, I'm not today. Great.
+Dimitri Saridakis: Awesome. Let me see what else have we got.
+Grace Smith: Um and then Oh, yeah. So, I finally got my PR merged and I yeah, I learned a lot from it, but it was definitely kind of I suppose frustrating in the moment. I kept like there was like um a gator agent. So I'd submit the like the PR and then the gator agent every single time would find something new but it would be like a lot of the stuff was a very much out of scope and I did about 10 rounds of it and I was talking to Ignis and Ian about it.
+
+
+
+
+00:14:21
+
+
+Dimitri Saridakis: which which g which sorry which gator agent like what does what Does that
+Grace Smith: Um,
+Dimitri Saridakis: mean
+Grace Smith: it reviews the code and finds bugs before it's approved to merge.
+Dimitri Saridakis: so you just like like a local review or how did you go about
+Grace Smith: It's on open shell like the main like when I tried to submit a PR if that makes sense.
+Dimitri Saridakis: Oh, sorry. So, it's like it's their CI agent,
+Grace Smith: Yeah.
+Dimitri Saridakis: their CI review agent.
+Grace Smith: Yeah. So, I did my own reviews with the team and then Coder Rabbit and then I went to Yeah. get it merged and then it kept being it was just like this this bot basically that um kept finding things that was wrong with my code, you know, fair enough. But then it got to the point where it felt like it was a never- ending loop. And then I I I had to just like comment and kind of ask the actual person like is this going like way out of scope or should I open another PR for what it's saying?
+
+
+
+
+00:15:26
+
+
+Grace Smith: Um and then he commented back John T. Myers um like being like, "Yeah, sorry. I'm just testing out the Gator agent." And it went like way off the rails. Um but it was like two days of me like pulling my hair, but now it's weird, so it's all good.
+Dimitri Saridakis: Happy days.
+Grace Smith: Um yeah.
+Dimitri Saridakis: Well done.
+Grace Smith: Um but yeah, so happy with that. And then yeah, I've been working on um converting my like GitHub issue uh monitor issue um agent for the team. So I've started something. I can link it in the chat. Um so Oh,
+Dimitri Saridakis: I see it.
+Grace Smith: you see?
+Dimitri Saridakis: It It's in our dialog.
+Grace Smith: Yeah. Yeah. Um,
+Dimitri Saridakis: The team is you try out
+Grace Smith: yeah. So, I'm still like very much experimenting with it, but it's technically like all ready um to go, but I want to test it further. Um, and also maybe something I could get your feedback on. Um,
+Dimitri Saridakis: Have you stuck it in?
+
+
+
+
+00:16:41
+
+
+Dimitri Saridakis: Um, yes. In Oh, no. Have you stuck it in open shell like in on an open shell? So like on on that cluster that would Yeah,
+Grace Smith: no, no, I've Yeah.
+Dimitri Saridakis: that would be a good next step.
+Grace Smith: Okay. I've just been Yeah. testing it locally.
+Dimitri Saridakis: Locally. What's the how how is it finding stuff locally?
+Grace Smith: Um Um
+Dimitri Saridakis: Is it working as expected
+Grace Smith: I Yeah. No, I think it's I'm happy with how how it's working. I'll show you the profile.
+Dimitri Saridakis: or
+Grace Smith: So I gave it like an open shell YAML profile so we can edit that. Um so I'm still like obviously as an intern um I have a fair idea what the team works on but um maybe you know probably more things or things I'm missing. Um but I just gave it like a a brief overview of what's
+Dimitri Saridakis: That's interesting.
+Grace Smith: important yeah for open shell or for us um and what we don't do
+
+
+
+
+00:17:30
+
+
+Dimitri Saridakis: Yeah.
+Grace Smith: and then how it works is yeah the with claude via
+Dimitri Saridakis: One
+Grace Smith: vertex AI um it yeah
+Dimitri Saridakis: second.
+Grace Smith: analyzes new issues and then um assesses them based on like team relevance urgency action um like clarity and from 1 to five.
+Dimitri Saridakis: Mhm.
+Grace Smith: So then it gets a total score. And then if something is like um a one um like if the relevance is a one then even if everything else is really good then it doesn't like there's like um it doesn't escalate if that makes sense. Even though the tech the total score um in other scenarios would make it escalate.
+Dimitri Saridakis: Oh, I see. Right.
+Grace Smith: Um
+Dimitri Saridakis: So like um how the criticality of said issue. Right.
+Grace Smith: yeah. Um so that that's cuz what that was just what I was using for my
+Dimitri Saridakis: Interesting.
+Grace Smith: GitHub issue. Um so I tried somewhat the same approach with this one using the scoring to help the LM LLM like make a verdict.
+
+
+
+
+00:18:44
+
+
+Grace Smith: Uh and also for testing wise you can see what it scored
+Dimitri Saridakis: Mhm.
+Grace Smith: each thing. Um so it's yeah interesting to go through that and also easier to fix if you find like it's over um you know over presuming on a c a certain thing. Um
+Dimitri Saridakis: How many um awesome I just how many um open issues are on the open shell are in the open shell repo?
+Grace Smith: Yeah. Yeah. It really depends on the day. I think technically the there's around 200 open now, but per day there's normally like 5 to eight per day um for like a good day. And then some days it's way more and some days it's way less. And then sometimes I think on weekends it even goes more
+Dimitri Saridakis: Interesting. Yeah, that's what I'm trying to find.
+Grace Smith: um
+Dimitri Saridakis: But I got distracted by someone opening up a someone having a Kubernetes operator. Umh who's this
+Grace Smith: so there's 289 open right now.
+Dimitri Saridakis: guy? Ah right.
+
+
+
+
+00:19:55
+
+
+Dimitri Saridakis: So there's Yeah. Yeah.
+Grace Smith: Um
+Dimitri Saridakis: Yeah. Some kind of some form of triage agent is uh definitely valuable.
+Grace Smith: yeah.
+Dimitri Saridakis: I'm trying to think. Do they have like a triage agent that um I'm not I haven't been as close to the code in Open Shell as I would like to be.
+Grace Smith: Mhm.
+Dimitri Saridakis: Do they have like a tri I know they have the triage triage agent that does like essentially triages a single issue like you know reviews it or what have you. Um, but do they have one that works across all issues and kind of like puts them in,
+Grace Smith: Yes.
+Dimitri Saridakis: I don't know, maybe buckets like this is affecting this open, you know, this is reflected by batching together issues or like duplicates or kind of figuring, you know, sorting out triaging the open bugs essentially or the open issues essentially.
+Grace Smith: Not that I can see. Um, no. Dude. I know when you go to actually there is something um when you go to open an issue it checks that there's no like no duplicate issue of it.
+
+
+
+
+00:21:11
+
+
+Dimitri Saridakis: Okay.
+Grace Smith: Um
+Dimitri Saridakis: But that still means we're on 200 and something open.
+Grace Smith: yeah.
+Dimitri Saridakis: Like that's a lot of issues, right, to try and for anyone to maintain or to
+Grace Smith: Yeah.
+Dimitri Saridakis: keep, you know, some kind of bird's eye level view of. Um,
+Grace Smith: Yeah.
+Dimitri Saridakis: so this is where I'm just I'm just wondering if like if we could if something like this makes sense for for upstream too. So what you're doing right now is obviously like rooting it to the team. What I'm looking at doing is trying to figure out with all the various different teams within Red Hat
+Grace Smith: Yeah.
+Dimitri Saridakis: working on Open Shell, who is focused on what um and where. And something like this would be would might actually if we could get this to work the way that I'm envisioning it. Um could be cool, right?
+Grace Smith: Yeah.
+Dimitri Saridakis: where you say ah you know this is good for like agent ops this one is good for core this one is good for whoever else right like for Nvidia yada yada yada but I'm I I like for
+
+
+
+
+00:22:09
+
+
+Grace Smith: Yeah.
+Dimitri Saridakis: that it would need context of the current people working within the repo um or working on the project in general um and kind of what their specialtities are
+Grace Smith: Yeah.
+Dimitri Saridakis: and I don't know how we get that um but it's something that I'm trying to build myself even internally at Red Hat and that's extremely
+Grace Smith: Okay.
+Dimitri Saridakis: f****** difficult So,
+Grace Smith: Yeah.
+Dimitri Saridakis: like I can imagine what it's like cross um cross team
+Grace Smith: Yeah.
+Dimitri Saridakis: unless at a community call or something.
+Grace Smith: Yeah.
+Dimitri Saridakis: Unless there's like a a contributor's dock or yeah, try and figure this out.
+Grace Smith: Yeah.
+Dimitri Saridakis: Um yeah, let me let me think some more on this and obviously like you think some more on it yourself and see see how it goes. Um, do do you see where I'm going with this area?
+Grace Smith: Yeah, I really like it. I think it's really
+Dimitri Saridakis: Um,
+Grace Smith: cool.
+Dimitri Saridakis: so have a obviously like test it out um people test it out ourselves first um locally or what have you.
+
+
+
+
+00:23:17
+
+
+Dimitri Saridakis: But if it like if it does what um you know what what it could
+Grace Smith: Yeah.
+Dimitri Saridakis: potentially do then it could be it could be really something nice to propose upstream or to um yeah propose upstream is exactly what I'm thinking
+Grace Smith: Yeah.
+Dimitri Saridakis: of.
+Grace Smith: Yeah, that'd be
+Dimitri Saridakis: Um smashing awesome work.
+Grace Smith: awesome.
+Dimitri Saridakis: Um yeah I I I'll think some more on this as well as soon as I get Oh yeah with all my free time. Um, but as soon as I as soon as I have even a couple of more minutes, I'll I'll I'll have a look into it a little bit more.
+Grace Smith: Okay, pass.
+Dimitri Saridakis: Um, cool. What else have we um Oh,
+Grace Smith: Thanks. Um, yeah, that's pretty
+Dimitri Saridakis: yeah. And you you obviously demoed the the stuff last week or yesterday,
+Grace Smith: s***.
+Dimitri Saridakis: whenever the f*** it was yesterday. Um yeah, like on that like great job um delivering the the
+Grace Smith: Yeah.
+Dimitri Saridakis: the demo, the the content, what have you.
+
+
+
+
+00:24:16
+
+
+Dimitri Saridakis: Um, one nitpick is that the organ as a whole didn't have the context into like where the project stem from and how it was um, you know,
+Grace Smith: Yeah.
+Dimitri Saridakis: how it came to be or what have you. Like what why is it that you that you created that operator and what like what the the your your and and this kind of goes like I'm going to say the same same feedback to all three of you.
+Grace Smith: Heat.
+Dimitri Saridakis: the that's why I got Mark to I pinged the lads on the side and told them that you know that someone should jump in at the end if he didn't cover it and just say like this is how we did it. This is why this is the whole kind of process through it. Um, so the takeaway and look again it's a bit of a nif but the takeaway from it is
+Grace Smith: Yeah.
+Dimitri Saridakis: to ensure that you know your your audience right to a certain extent um and what they know or don't know.
+Grace Smith: Yes.
+Dimitri Saridakis: Now, that is extremely difficult to do, right?
+
+
+
+
+00:25:18
+
+
+Dimitri Saridakis: Like, uh, in a lot of cases, especially if you're like talking at a random conference or something. Um, it's know like figuring out what people do know and what they don't know, how technical to make something, how, you know, businessy to make something or or whatever.
+Grace Smith: Yeah.
+Dimitri Saridakis: Um, in those scenarios, what I tend to do is like ask at the very very start, I'll ask a couple of questions. Um so I it's also nice to like when you are when you are delivering um content or if if you're speaking or whatever to have that kind of like inter uh interaction element with with the with the crowd that are there. So like a show of hands who knows what an Kubernetes operator is a show like obviously that's you know you're you're going
+Grace Smith: Yeah.
+Dimitri Saridakis: to need to everybody within a should know what a Kubernetes operator is right. That that's not the question.
+Grace Smith: Yeah.
+Dimitri Saridakis: But like h if you're talking Yeah.
+Grace Smith: Yeah.
+Dimitri Saridakis: at a at a diff you know somewhere else show hand plans who know who knows what this is who knows what that is and then you can kind of tailor suit the the the talk.
+
+
+
+
+00:26:23
+
+
+Grace Smith: Yeah, very good.
+Dimitri Saridakis: Well you can kind of you know you're going to have most of the content already done obviously but you can maybe like I I've done that before
+Grace Smith: Yeah.
+Dimitri Saridakis: where I've glossed over one or two slides because when I asked the questions at the start the the audience was more technical than I thought it was going to be. So I was like okay awesome.
+Grace Smith: Okay.
+Dimitri Saridakis: might have like these two or three slides, but um you all already know this, like the vast majority of you, so I just skim um and then I just I skipped one. But it's it's it's try and find out who your like target audience is
+Grace Smith: Yeah.
+Dimitri Saridakis: um and then deliver accordingly,
+Grace Smith: Yeah.
+Dimitri Saridakis: I suppose, is the is the feedback. But other than that,
+Grace Smith: Yeah.
+Dimitri Saridakis: like He delivered it really well. Um yeah,
+Grace Smith: No,
+Dimitri Saridakis: I can have no no complaints over that.
+Grace Smith: that's great feedback. Thank
+Dimitri Saridakis: And uh Roland pinged me on the side as well actually and he he was he was very impressed.
+
+
+
+
+00:27:04
+
+
+Grace Smith: you.
+Dimitri Saridakis: So um kudos cuz you don't always get um distinguished engineers commenting on your stuff, right? So uh he he put in a nice uh a nice bit of a comment as well.
+Grace Smith: Yeah.
+Dimitri Saridakis: Um and you know some learnings. So there we have a couple of senior distinguished engineers within the company like I would I don't know how many in totality but it's not I I wouldn't say it's any more than like 20 odd right um we
+Grace Smith: Mhm.
+Dimitri Saridakis: have a few more um dees but these are also like a rarity not everybody makes it to that de level right in fact like obviously very few um So like Roland's written two O'Reilly books. Um so having having someone with that level of uh you know expertise and and um history knowledge whatever you want to whatever expertise I suppose um and experience is yeah definitely a a positive and um um impressing them is even more of a positive.
+Grace Smith: Nice.
+Dimitri Saridakis: perfectly.
+Grace Smith: Thank you. Appreciate
+Dimitri Saridakis: But um yeah,
+
+
+
+
+00:28:24
+
+
+Grace Smith: it.
+Dimitri Saridakis: outside of that, everything else all good. We have like a minute left
+Grace Smith: Um yeah, all good. I guess on um like I really like feedback.
+Dimitri Saridakis: there.
+Grace Smith: Um is there anything else that I'm should be doing or should start doing or improve what I'm
+Dimitri Saridakis: Um so what are you doing like from a like a day?
+Grace Smith: doing?
+Dimitri Saridakis: Are you looking into like more open shell issues now or what's
+Grace Smith: Yeah. Um yeah, I want to find yeah another issue to start.
+Dimitri Saridakis: the
+Grace Smith: Um, and then when in between OpenShell, I've been doing the agents and trying to improve those.
+Dimitri Saridakis: uh trying to improve the like the whatcham call it the the team issue try out. Yeah. So yeah agent.
+Grace Smith: Yeah.
+Dimitri Saridakis: Cool.
+Grace Smith: And then I also a little bit on the, you know, I think I showed it to you last week,
+Dimitri Saridakis: Um
+Grace Smith: the the me things meeting minor. Um, so yes. experimenting around with
+
+
+
+
+00:29:29
+
+
+Dimitri Saridakis: yeah. Um I think that the the
+Grace Smith: those.
+Dimitri Saridakis: the feedback off my head. I think the the triage agent could be really really powerful if you get that if you get that to like a really nice place. Um, it could be a nice takeaway from from the internship. I still haven't heard back as to like what the story is with the with you're finishing early.
+Grace Smith: Yeah.
+Dimitri Saridakis: It shouldn't be an issue,
+Grace Smith: Yeah.
+Dimitri Saridakis: but um I just had to run it through channels and people on PTO and what have you. So um as soon as I know more I will ping you and let you know.
+Grace Smith: Okay, thank
+Dimitri Saridakis: Um,
+Grace Smith: you.
+Dimitri Saridakis: let me see what else is there. Um, I don't know if you heard that in the background. Um, but no.
+Grace Smith: No.
+Dimitri Saridakis: Um, my daughter suggests you eat chocolate uh
+Grace Smith: Yes.
+Dimitri Saridakis: all day long. Um, yeah, that that's that's not that's not professional career advice.
+
+
+
+
+00:30:27
+
+
+Dimitri Saridakis: Now, that's that's my uh Um,
+Grace Smith: I'll take
+Dimitri Saridakis: so yeah, let me on this some more,
+Grace Smith: it.
+Dimitri Saridakis: but definitely like it it the the triage agent is good. More open shell issues are good. Like you could also just ping into the group chat and say and if anybody wants any um any reviews on any of their stuff or you know like reviews
+Grace Smith: Yeah. All
+Dimitri Saridakis: are definitely something that that we should be doing more and more and more of um testing stuff out taking uh because we do have
+Grace Smith: right.
+Dimitri Saridakis: like documentation right um uh for dev preview you. So,
+Grace Smith: Mhm.
+Dimitri Saridakis: oh god, there's actually two there's two things now here that I'm trying to think. Um, okay. Yeah, we do have documentation um for dev preview. I don't know if like it's in a doc somewhere, but we do need to that's that's where I was. Yeah, maybe this is a is a good one for you. I'll give the other one to DV or something.
+
+
+
+
+00:31:33
+
+
+Dimitri Saridakis: Um is to take that and uh like run
+Grace Smith: Mhm.
+Dimitri Saridakis: through it end to end, right? ensure that it works with the various versions of um open shell of agent sandbox operator yada yada um and yeah just like verification of the ensure that anything that doesn't work is documented
+Grace Smith: Okay.
+Dimitri Saridakis: um because like that'll be our dev preview documentation essentially right that goes on
+Grace Smith: Yeah.
+Dimitri Saridakis: ODH uh yeah say can you do that in the bachelor
+Grace Smith: Okay.
+Dimitri Saridakis: because I don't want paint all over my kitchen. Um, sorry. Uh,
+Grace Smith: Sorry,
+Dimitri Saridakis: yeah.
+Grace Smith: we've forgotten ever time as well.
+Dimitri Saridakis: No, you're good. You're good. I was late for this.
+Grace Smith: These are good.
+Dimitri Saridakis: All of my calls already this morning have f******
+Grace Smith: Thanks,
+Dimitri Saridakis: gone over. So, story of my life. Um, I can't seem to get a handle on my calendar. I was like, Claude, fix my calendar. And Claude just like f****** 405s. Uh, no, not allowed. Um,
+Grace Smith: Yeah.
+Dimitri Saridakis: right. Uh, yeah. Cool. I I again I'll think more on on this and and on the other one,
+Grace Smith: Awesome.
+Dimitri Saridakis: but like I think that um if if you're if you run through all of that and verify that it all works um then that that should
+Grace Smith: Yeah.
+Dimitri Saridakis: be golden.
+Grace Smith: Okay. Great. Thanks so much.
+Dimitri Saridakis: Cool. Good to see you, Grace. Chat you soon.
+Grace Smith: Easy. See you. Bye.
+Dimitri Saridakis: Jeff.
+Grace Smith: Next.
+
+
+
+
+Transcription ended after 00:32:59
+
+
+This editable transcript was computer generated and might contain errors. People can also change the text after it was created.

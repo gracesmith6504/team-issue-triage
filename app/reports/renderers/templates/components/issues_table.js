@@ -4,15 +4,34 @@ var activeArea = "";
 var searchQuery = "";
 
 function matchesFilters(issue) {
+  // Time period filter
+  if (state.dateRange && state.dateRange !== "All") {
+    var now = new Date();
+    var assessedDate = new Date(issue.assessed_at);
+    var hoursDiff = (now - assessedDate) / (1000 * 60 * 60);
+
+    if (state.dateRange === "24h" && hoursDiff > 24) return false;
+    if (state.dateRange === "7d" && hoursDiff > 24 * 7) return false;
+    if (state.dateRange === "30d" && hoursDiff > 24 * 30) return false;
+  }
+
+  // Team filter
   if (activeTeams.length && activeTeams.indexOf(issue.primary_team) === -1) return false;
+
+  // Urgency filter
   if (activeUrgencies.length && activeUrgencies.indexOf(issue.urgency) === -1) return false;
+
+  // Area filter
   if (activeArea && (issue.area || "") !== activeArea) return false;
+
+  // Search filter
   if (searchQuery) {
     var q = searchQuery.toLowerCase();
     var title = (issue.issue_title || issue.title || "").toLowerCase();
     var num = String(issue.issue_number || issue.number || "");
     if (title.indexOf(q) === -1 && num.indexOf(q) === -1) return false;
   }
+
   return true;
 }
 

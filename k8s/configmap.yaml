@@ -5,7 +5,12 @@ metadata:
 data:
   WATCH_REPOS: "NVIDIA/OpenShell"
   LLM_PROVIDER: "vertex"
+  VERTEX_PROJECT_ID: "itpc-gcp-ai-eng-claude"
   VERTEX_REGION: "us-east5"
   STATE_PATH: "/data/state.json"
+  ASSESSMENT_LOG_PATH: "/data/assessments.jsonl"
+  METRICS_PATH: "/data/metrics.jsonl"
   PROFILES_DIR: "/app/profiles"
   DEFAULT_LOOKBACK_HOURS: "24"
+  REPORT_OUTPUT_PATH: "/data/report.html"
+  GOOGLE_APPLICATION_CREDENTIALS: "/etc/gcp/credentials.json"

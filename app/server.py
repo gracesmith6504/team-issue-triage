@@ -126,9 +126,9 @@ def _run_triage_cycle(app: FastAPI) -> None:
         except Exception:
             logger.exception("Triage failed")
 
-        # Update issue count for health endpoint
         results = read_results_as_triage(config.assessment_log_path)
         app.state.issue_count = len(results)
+        app.state.last_triage = datetime.now(timezone.utc).isoformat()
 
         logger.info("Triage cycle complete: %d issues total", len(results))
     except Exception:
@@ -167,14 +167,14 @@ def _run_report_cycle(app: FastAPI) -> None:
         repo_config = load_repo_config("openshell", profiles_dir=config.profiles_dir)
 
         now = datetime.now(timezone.utc)
-        current_start, previous_start, period_label = compute_period(
-            repo_config.reporting, now
-        )
 
-        current = read_results_as_triage(
-            config.assessment_log_path,
-            start_date=current_start.isoformat(),
-        )
+        # Load ALL issues (no date filter) for client-side time filtering
+        current = read_results_as_triage(config.assessment_log_path)
+
+        # For trend comparison, still need previous period
+        # Use last 30 days as the comparison window
+        previous_start = now - timedelta(days=60)
+        current_start = now - timedelta(days=30)
         previous = read_results_as_triage(
             config.assessment_log_path,
             start_date=previous_start.isoformat(),
@@ -183,6 +183,10 @@ def _run_report_cycle(app: FastAPI) -> None:
 
         llm_client = build_llm_client(config)
         model = resolve_model(config.llm_provider, config.llm_model)
+
+        # Period label is "All time" since we're loading everything
+        # Client-side filtering will handle the actual time windows
+        period_label = "All time"
 
         generator = BirdsEyeReportGenerator(
             current, previous, llm_client, model, period_label

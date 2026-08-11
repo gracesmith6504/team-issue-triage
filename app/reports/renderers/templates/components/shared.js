@@ -42,6 +42,6 @@ function saveState(s) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s
 var state = loadState();
 if (!state.dismissed) state.dismissed = [];
 if (!state.collapsed) state.collapsed = {};
-if (!state.dateRange) state.dateRange = "14d";
+if (!state.dateRange) state.dateRange = "30d";
 
 var d = REPORT_DATA;

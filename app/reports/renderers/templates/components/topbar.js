@@ -30,17 +30,17 @@ function buildTopBar() {
   bar.appendChild(left);
 
   var center = el("div", "topbar-center");
-  ["7d", "14d", "30d"].forEach(function(range) {
+  ["24h", "7d", "30d", "All"].forEach(function(range) {
     var pill = el("button", "date-pill" + (state.dateRange === range ? " active" : ""));
     pill.textContent = range;
-    pill.title = "Date range filtering available in live mode";
     pill.addEventListener("click", function() {
       state.dateRange = range;
       saveState(state);
       bar.querySelectorAll(".date-pill").forEach(function(p) { p.classList.remove("active"); });
       pill.classList.add("active");
-      var periodEl = bar.querySelector(".topbar-period");
-      if (periodEl) periodEl.textContent = DATE_LABELS[range] || d.summary.period_label;
+
+      // Trigger filtering when period changes
+      applyAllFilters();
     });
     center.appendChild(pill);
   });

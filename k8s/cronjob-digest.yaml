@@ -16,7 +16,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: digest
-              image: quay.io/gracesmith6504/team-issue-triage:latest
+              image: quay.io/rh-ee-grasmith/team-issue-triage:latest
               args: ["--mode", "digest"]
               envFrom:
                 - configMapRef:
@@ -36,7 +36,13 @@ spec:
               volumeMounts:
                 - name: state
                   mountPath: /data
+                - name: gcp-credentials
+                  mountPath: /etc/gcp
+                  readOnly: true
           volumes:
             - name: state
               persistentVolumeClaim:
                 claimName: triage-state
+            - name: gcp-credentials
+              secret:
+                secretName: gcp-vertex-credentials

@@ -92,6 +92,7 @@ def _report_to_dict(
                 "issue_title": issue["issue_title"],
                 "issue_url": issue["issue_url"],
                 "author_login": issue.get("author_login", ""),
+                "author_association": issue.get("author_association", "NONE"),
                 "days_open": issue.get("days_open", 0),
                 "has_linked_pr": issue.get("has_linked_pr", False),
                 "summary": summary,

@@ -120,7 +120,7 @@ def run_refresh(config: TriageConfig) -> None:
     logger.info("Starting weekly refresh of all open issues")
 
     # Load existing assessments to compare
-    from app.state.assessment_log import AssessmentLog, read_results_as_triage
+    from app.state.assessment_log import append_result, read_results_as_triage
 
     existing = {
         r.issue_number: r for r in read_results_as_triage(config.assessment_log_path)
@@ -142,8 +142,6 @@ def run_refresh(config: TriageConfig) -> None:
     re_triaged = 0
     unchanged = 0
     new_issues = 0
-
-    log = AssessmentLog(config.assessment_log_path)
 
     # Process each issue
     for issue_data in all_issues:
@@ -181,7 +179,7 @@ def run_refresh(config: TriageConfig) -> None:
 
             if result:
                 # Append to assessment log (dedup keeps latest)
-                log.append_result(result)
+                append_result(config.assessment_log_path, result)
 
     logger.info(
         "Weekly refresh complete: %d new, %d re-triaged, %d unchanged",
@@ -199,7 +197,7 @@ def check_closed_issues(config: TriageConfig) -> None:
     """
     import requests
     from app.core.models import TriageResult
-    from app.state.assessment_log import AssessmentLog, read_results_as_triage
+    from app.state.assessment_log import append_result, read_results_as_triage
 
     logger.info("Checking for closed issues")
 
@@ -207,7 +205,6 @@ def check_closed_issues(config: TriageConfig) -> None:
     existing = read_results_as_triage(config.assessment_log_path)
     open_in_log = [r for r in existing if not getattr(r, "closed", False)]
 
-    log = AssessmentLog(config.assessment_log_path)
     closed_count = 0
 
     for result in open_in_log:
@@ -246,7 +243,7 @@ def check_closed_issues(config: TriageConfig) -> None:
                     closed=True,  # Mark as closed
                 )
 
-                log.append_result(closed_result)
+                append_result(config.assessment_log_path, closed_result)
                 closed_count += 1
 
     logger.info("Marked %d issues as closed", closed_count)

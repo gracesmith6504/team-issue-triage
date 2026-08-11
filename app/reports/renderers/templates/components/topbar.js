@@ -64,9 +64,13 @@ function buildTopBar() {
       var band = document.querySelector('.team-band[data-team="' + t + '"]');
       if (band) {
         band.open = true;
-        band.scrollIntoView({behavior: "smooth", block: "start"});
-        // Scroll up a bit more to account for sticky topbar
-        window.scrollBy(0, -60);
+        // Wait for details to open, then scroll with offset for sticky topbar
+        setTimeout(function() {
+          var rect = band.getBoundingClientRect();
+          var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+          var targetY = rect.top + scrollTop - 70; // 70px offset for sticky topbar
+          window.scrollTo({top: targetY, behavior: 'smooth'});
+        }, 50);
       }
     });
     dropdown.appendChild(lbl);

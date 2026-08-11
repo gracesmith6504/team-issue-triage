@@ -132,7 +132,17 @@ def _run_triage_cycle(app: FastAPI) -> None:
         except Exception:
             logger.exception("Closed-issue check failed")
 
+        # Enrich issues to update linked PR status
         results = read_results_as_triage(config.assessment_log_path)
+
+        try:
+            from app.sources.enrichment import enrich_issues
+            enrichment = enrich_issues(results, config.github_token)
+            app.state.enrichment = enrichment
+            logger.info("Enrichment complete: %d issues checked", len(enrichment))
+        except Exception:
+            logger.exception("Enrichment failed")
+
         app.state.issue_count = len(results)
         app.state.last_triage = datetime.now(timezone.utc).isoformat()
 
@@ -156,13 +166,9 @@ def _run_report_cycle(app: FastAPI) -> None:
 
         results = read_results_as_triage(config.assessment_log_path)
 
-        enrichment = {}
-        try:
-            enrichment = enrich_issues(results, config.github_token)
-        except Exception:
-            logger.exception("Enrichment failed, rendering without enrichment")
-
-        app.state.enrichment = enrichment
+        # Reuse cached enrichment from hourly cycle
+        # (Enrichment was already updated within the last hour)
+        enrichment = app.state.enrichment
 
         from app.core.llm import build_llm_client, resolve_model
         from app.core.profiles import load_repo_config

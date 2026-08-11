@@ -4,6 +4,12 @@ function buildTeamRouting() {
   section.innerHTML = '<div class="section-header"><div class="section-title">Team Routing <span class="count">(' + d.all_issues.length + ' issues across ' + Object.keys(d.team_breakdown).length + ' teams)</span></div></div>';
 
   var teamOrder = Object.keys(d.team_breakdown);
+  // Sort teams: "none" (Unassigned) goes to bottom
+  teamOrder.sort(function(a, b) {
+    if (a === "none") return 1;  // "none" goes after everything
+    if (b === "none") return -1; // everything goes before "none"
+    return a.localeCompare(b);   // alphabetical for other teams
+  });
   teamOrder.forEach(function(teamId) {
     var team = d.team_breakdown[teamId];
     if (!team) return;

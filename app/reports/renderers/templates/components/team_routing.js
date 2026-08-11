@@ -161,6 +161,13 @@ function buildTeamRouting() {
             detailsHTML = '<div class="issue-sub">' + esc(iss.summary) + '</div>';
           }
 
+          // Format author association badge
+          var authorAssoc = iss.author_association || 'NONE';
+          var authorBadge = '';
+          if (authorAssoc !== 'NONE') {
+            authorBadge = '<span class="author-role">' + esc(authorAssoc) + '</span>';
+          }
+
           row.className = 'issue ' + urgencyClass;
           row.innerHTML =
             '<div class="issue-top">' +
@@ -171,6 +178,7 @@ function buildTeamRouting() {
               '<span class="issue-meta">' +
                 (iss.has_linked_pr ? '<span class="pr">PR</span>' : '') +
                 (iss.author_login ? '<span>@' + esc(iss.author_login) + '</span>' : '') +
+                authorBadge +
                 (iss.days_open != null ? '<span>' + iss.days_open + 'd</span>' : '') +
               '</span>' +
             '</div>' +

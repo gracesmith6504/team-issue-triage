@@ -106,6 +106,8 @@ def _report_to_dict(
                 enr = enrichment.get(issue["issue_number"])
                 if enr:
                     issue["has_linked_pr"] = enr.has_linked_pr
+                    issue["linked_pr_url"] = enr.linked_pr_url
+                    issue["linked_pr_draft"] = enr.linked_pr_draft
 
         # Apply enrichment to team_issues as well
         for team_id, issues in team_issues.items():
@@ -113,11 +115,15 @@ def _report_to_dict(
                 enr = enrichment.get(issue["issue_number"])
                 if enr:
                     issue["has_linked_pr"] = enr.has_linked_pr
+                    issue["linked_pr_url"] = enr.linked_pr_url
+                    issue["linked_pr_draft"] = enr.linked_pr_draft
         for cluster in data.get("duplicate_clusters", []):
             for issue in cluster.get("issues", []):
                 enr = enrichment.get(issue["issue_number"])
                 if enr:
                     issue["has_linked_pr"] = enr.has_linked_pr
+                    issue["linked_pr_url"] = enr.linked_pr_url
+                    issue["linked_pr_draft"] = enr.linked_pr_draft
 
     area_list = []
     for area_name, trend in data.get("area_heatmap", {}).items():

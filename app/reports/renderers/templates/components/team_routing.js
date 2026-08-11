@@ -163,9 +163,11 @@ function buildTeamRouting() {
 
           // Format author association badge
           var authorAssoc = iss.author_association || 'NONE';
+          // Display COLLABORATOR as MAINTAINER (they have write access = maintainers)
+          var displayRole = authorAssoc === 'COLLABORATOR' ? 'MAINTAINER' : authorAssoc;
           var authorBadge = '';
           if (authorAssoc !== 'NONE') {
-            authorBadge = '<span class="author-role">' + esc(authorAssoc) + '</span>';
+            authorBadge = '<span class="author-role">' + esc(displayRole) + '</span>';
           }
 
           row.className = 'issue ' + urgencyClass;

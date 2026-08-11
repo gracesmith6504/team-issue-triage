@@ -3,14 +3,21 @@ import logging
 from pathlib import Path
 
 from app.config import load_config
-from app.triage import run_digest, run_report, run_review, run_triage
+from app.triage import (
+    check_closed_issues,
+    run_digest,
+    run_refresh,
+    run_report,
+    run_review,
+    run_triage,
+)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Team issue triage agent")
     parser.add_argument(
         "--mode",
-        choices=["triage", "digest", "review", "report", "serve"],
+        choices=["triage", "digest", "review", "report", "serve", "refresh", "check-closed"],
         default="triage",
     )
     parser.add_argument("--verbose", "-v", action="store_true")
@@ -42,6 +49,10 @@ def main():
         from app.server import start_server
 
         start_server(config)
+    elif args.mode == "refresh":
+        run_refresh(config)
+    elif args.mode == "check-closed":
+        check_closed_issues(config)
     else:
         run_triage(config)
 

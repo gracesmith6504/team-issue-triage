@@ -27,6 +27,17 @@ class GitHubSource:
             all_issues.extend(issues)
         return all_issues
 
+    def fetch_all_open_issues(self, repos: list[str]) -> list[IssueData]:
+        """Fetch ALL open issues from repos (no time filter, no seen_ids check).
+
+        Used for weekly refresh to get current state of all open issues.
+        """
+        all_issues = []
+        for repo in repos:
+            issues = self._fetch_all_repo_issues(repo)
+            all_issues.extend(issues)
+        return all_issues
+
     def _fetch_repo_issues(
         self, repo: str, since: str, seen_ids: set[str]
     ) -> list[IssueData]:
@@ -82,6 +93,72 @@ class GitHubSource:
             )
 
         logger.info("Fetched %d new issues from %s", len(issues), repo)
+        return issues
+
+    def _fetch_all_repo_issues(self, repo: str) -> list[IssueData]:
+        """Fetch ALL open issues from a repo (no time filter, handles pagination)."""
+        url = f"{GITHUB_API}/repos/{repo}/issues"
+        params = {
+            "state": "open",
+            "sort": "created",
+            "direction": "desc",
+            "per_page": 100,
+        }
+
+        issues = []
+        page = 1
+
+        while True:
+            params["page"] = page
+            response = requests.get(url, headers=self._headers, params=params)
+
+            if response.status_code != 200:
+                logger.error(
+                    "GitHub API error for %s page %d: %s %s",
+                    repo,
+                    page,
+                    response.status_code,
+                    response.text,
+                )
+                break
+
+            items = response.json()
+            if not items:  # No more pages
+                break
+
+            for item in items:
+                if item.get("pull_request"):  # Skip PRs
+                    continue
+
+                comment_count = item.get("comments", 0)
+                comments = (
+                    self._fetch_comments(repo, item["number"]) if comment_count else []
+                )
+
+                issues.append(
+                    IssueData(
+                        repo=repo,
+                        number=item["number"],
+                        title=item["title"],
+                        body=item.get("body") or "",
+                        labels=[label["name"] for label in item.get("labels", [])],
+                        comments=comments,
+                        url=item["html_url"],
+                        created_at=item["created_at"],
+                        author_association=item.get("author_association", "NONE"),
+                        author_login=item.get("user", {}).get("login", ""),
+                        assignees=[a["login"] for a in item.get("assignees", [])],
+                    )
+                )
+
+            page += 1
+
+            # Safety: max 5 pages (500 issues) per repo
+            if page > 5:
+                logger.warning("Hit max page limit for %s", repo)
+                break
+
+        logger.info("Fetched %d total open issues from %s", len(issues), repo)
         return issues
 
     def _fetch_comments(self, repo: str, issue_number: int) -> list[dict]:

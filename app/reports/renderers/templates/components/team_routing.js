@@ -19,6 +19,14 @@ function buildTeamRouting() {
     var total = team.total;
     var trend = team.trend || "0";
 
+    // Calculate bug count for this team
+    var issues = d.team_issues[teamId] || [];
+    var bugCount = 0;
+    issues.forEach(function(iss) {
+      var labels = iss.labels || [];
+      if (labels.indexOf("bug") !== -1) bugCount++;
+    });
+
     // Calculate percentages for urgency bar chart
     var critCount = urgencies["critical"] || 0;
     var highCount = urgencies["high"] || 0;
@@ -56,10 +64,11 @@ function buildTeamRouting() {
       : '';
 
     var header = el("summary", "team-band-header");
+    var totalText = bugCount > 0 ? total + ' total, ' + bugCount + ' bug' + (bugCount === 1 ? '' : 's') : total + '';
     header.innerHTML =
       '<span class="caret">&#9654;</span>' +
       '<span class="team-name">' + esc(teamId === "none" ? "Unassigned" : team.team_name || teamId) + '</span>' +
-      '<span class="team-total">' + total + '</span>' +
+      '<span class="team-total">' + totalText + '</span>' +
       mixHTML +
       trendHTML;
     band.appendChild(header);

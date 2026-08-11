@@ -43,5 +43,6 @@ var state = loadState();
 if (!state.dismissed) state.dismissed = [];
 if (!state.collapsed) state.collapsed = {};
 if (!state.dateRange) state.dateRange = "30d";
+if (!state.issueTypeFilter) state.issueTypeFilter = "All";
 
 var d = REPORT_DATA;

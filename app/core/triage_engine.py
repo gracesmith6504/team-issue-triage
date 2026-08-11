@@ -110,4 +110,5 @@ def triage_issue(
         created_at=issue.created_at,
         author_association=issue.author_association,
         author_login=issue.author_login,
+        labels=issue.labels,
     )

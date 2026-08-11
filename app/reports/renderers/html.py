@@ -95,6 +95,7 @@ def _report_to_dict(
                 "days_open": issue.get("days_open", 0),
                 "has_linked_pr": issue.get("has_linked_pr", False),
                 "summary": summary,
+                "labels": issue.get("labels", []),
             }
         )
 

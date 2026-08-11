@@ -23,6 +23,7 @@ class TriageConfig:
     pr_health_enabled: bool = True
     vouch_tracking_enabled: bool = True
     metrics_path: Path = Path("/data/metrics.jsonl")
+    report_schedule_hour: int = 9  # Hour (UTC) to generate daily report
 
 
 def load_config() -> TriageConfig:
@@ -80,4 +81,5 @@ def load_config() -> TriageConfig:
         vouch_tracking_enabled=os.environ.get("VOUCH_TRACKING_ENABLED", "true").lower()
         != "false",
         metrics_path=Path(os.environ.get("METRICS_PATH", "/data/metrics.jsonl")),
+        report_schedule_hour=int(os.environ.get("REPORT_SCHEDULE_HOUR", "9")),
     )

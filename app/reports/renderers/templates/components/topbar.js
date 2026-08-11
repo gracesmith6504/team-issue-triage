@@ -8,7 +8,25 @@ function buildTopBar() {
   var bar = document.getElementById("topbar");
 
   var left = el("div", "topbar-left");
-  left.innerHTML = '<a href="https://github.com/NVIDIA/OpenShell" target="_blank" class="topbar-title">OpenShell Overview</a><span class="topbar-period">' + esc(d.summary.period_label) + '</span>';
+
+  // Format timestamp
+  var lastUpdated = 'Loading...';
+  if (d.generated_at) {
+    try {
+      var date = new Date(d.generated_at);
+      lastUpdated = date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (e) {
+      lastUpdated = 'Unknown';
+    }
+  }
+
+  left.innerHTML = '<a href="https://github.com/NVIDIA/OpenShell" target="_blank" class="topbar-title">OpenShell Overview</a><span class="topbar-period">Last updated: ' + lastUpdated + '</span>';
   bar.appendChild(left);
 
   var center = el("div", "topbar-center");

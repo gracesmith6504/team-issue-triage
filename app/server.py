@@ -1,7 +1,7 @@
 import logging
 import threading
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import uvicorn
 from fastapi import FastAPI
@@ -94,7 +94,8 @@ def create_app(config: TriageConfig) -> FastAPI:
                     status_code=429,
                 )
 
-        thread = threading.Thread(target=_run_cycle, args=(app,), daemon=True)
+        # Manual refresh triggers both triage and report (for testing)
+        thread = threading.Thread(target=_run_report_cycle, args=(app,), daemon=True)
         thread.start()
         return JSONResponse({"status": "accepted"}, status_code=202)
 
@@ -102,25 +103,50 @@ def create_app(config: TriageConfig) -> FastAPI:
 
 
 def _schedule_cycle(app: FastAPI) -> None:
-    thread = threading.Thread(target=_run_cycle, args=(app,), daemon=True)
-    thread.start()
+    # Start both triage (hourly) and report (daily) cycles
+    triage_thread = threading.Thread(target=_run_triage_cycle, args=(app,), daemon=True)
+    triage_thread.start()
+    _schedule_daily_report(app)
 
 
-def _run_cycle(app: FastAPI) -> None:
+def _run_triage_cycle(app: FastAPI) -> None:
+    """Hourly: triage new issues and send notifications (no synthesis)."""
     if not app.state.cycle_lock.acquire(blocking=False):
-        logger.info("Cycle already running, skipping")
+        logger.info("Triage cycle already running, skipping")
         return
 
     try:
         config = app.state.config
-        logger.info("Starting triage cycle")
+        logger.info("Starting hourly triage cycle")
 
         from app.triage import run_triage
 
         try:
             run_triage(config)
         except Exception:
-            logger.exception("Triage failed, will serve stale data")
+            logger.exception("Triage failed")
+
+        # Update issue count for health endpoint
+        results = read_results_as_triage(config.assessment_log_path)
+        app.state.issue_count = len(results)
+
+        logger.info("Triage cycle complete: %d issues total", len(results))
+    except Exception:
+        logger.exception("Triage cycle failed")
+    finally:
+        app.state.cycle_lock.release()
+        _schedule_triage_next(app)
+
+
+def _run_report_cycle(app: FastAPI) -> None:
+    """Daily: generate team synthesis and full dashboard."""
+    if not app.state.cycle_lock.acquire(blocking=False):
+        logger.info("Report cycle already running, skipping")
+        return
+
+    try:
+        config = app.state.config
+        logger.info("Starting daily report generation")
 
         results = read_results_as_triage(config.assessment_log_path)
 
@@ -186,16 +212,41 @@ def _run_cycle(app: FastAPI) -> None:
         app.state.last_triage = now.isoformat()
         app.state.issue_count = len(current)
 
-        logger.info("Triage cycle complete: %d issues", len(current))
+        logger.info("Report generation complete: %d issues", len(current))
     except Exception:
-        logger.exception("Triage cycle failed")
+        logger.exception("Report generation failed")
     finally:
         app.state.cycle_lock.release()
-        _schedule_next(app)
+        _schedule_daily_report(app)
 
 
-def _schedule_next(app: FastAPI) -> None:
-    timer = threading.Timer(3600, _run_cycle, args=(app,))
+def _schedule_triage_next(app: FastAPI) -> None:
+    """Schedule next hourly triage cycle."""
+    timer = threading.Timer(3600, _run_triage_cycle, args=(app,))
+    timer.daemon = True
+    timer.start()
+
+
+def _schedule_daily_report(app: FastAPI) -> None:
+    """Schedule next daily report generation at 9am UTC."""
+    config = app.state.config
+    report_hour = getattr(config, "report_schedule_hour", 9)  # Default 9am UTC
+
+    now = datetime.now(timezone.utc)
+    target = now.replace(hour=report_hour, minute=0, second=0, microsecond=0)
+
+    # If we've passed today's target time, schedule for tomorrow
+    if now >= target:
+        target += timedelta(days=1)
+
+    delay = (target - now).total_seconds()
+    logger.info(
+        "Scheduling next report generation at %s (in %.1f hours)",
+        target.isoformat(),
+        delay / 3600,
+    )
+
+    timer = threading.Timer(delay, _run_report_cycle, args=(app,))
     timer.daemon = True
     timer.start()
 

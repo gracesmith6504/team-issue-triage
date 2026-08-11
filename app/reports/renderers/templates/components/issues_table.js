@@ -15,6 +15,14 @@ function matchesFilters(issue) {
     if (state.dateRange === "30d" && hoursDiff > 24 * 30) return false;
   }
 
+  // Bug/Feature type filter
+  if (state.issueTypeFilter && state.issueTypeFilter !== "All") {
+    var labels = issue.labels || [];
+    var isBug = labels.indexOf("bug") !== -1;
+    if (state.issueTypeFilter === "Bugs" && !isBug) return false;
+    if (state.issueTypeFilter === "Features" && isBug) return false;
+  }
+
   // Team filter
   if (activeTeams.length && activeTeams.indexOf(issue.primary_team) === -1) return false;
 

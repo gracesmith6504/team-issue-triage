@@ -45,6 +45,7 @@ class TriageResult:
     created_at: str = ""
     author_association: str = "NONE"
     author_login: str = ""
+    labels: list[str] = field(default_factory=list)
 
 
 @dataclass

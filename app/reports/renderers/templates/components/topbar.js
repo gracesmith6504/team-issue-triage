@@ -30,6 +30,8 @@ function buildTopBar() {
   bar.appendChild(left);
 
   var center = el("div", "topbar-center");
+
+  // Time filter buttons
   ["24h", "7d", "30d", "All"].forEach(function(range) {
     var pill = el("button", "date-pill" + (state.dateRange === range ? " active" : ""));
     pill.textContent = range;
@@ -38,12 +40,30 @@ function buildTopBar() {
       saveState(state);
       bar.querySelectorAll(".date-pill").forEach(function(p) { p.classList.remove("active"); });
       pill.classList.add("active");
-
-      // Trigger filtering when period changes
       applyAllFilters();
     });
     center.appendChild(pill);
   });
+
+  // Spacer
+  var spacer = el("span", "filter-spacer");
+  spacer.textContent = "|";
+  center.appendChild(spacer);
+
+  // Bug/Feature filter buttons
+  ["All", "Bugs", "Features"].forEach(function(filter) {
+    var pill = el("button", "type-pill" + (state.issueTypeFilter === filter ? " active" : ""));
+    pill.textContent = filter;
+    pill.addEventListener("click", function() {
+      state.issueTypeFilter = filter;
+      saveState(state);
+      bar.querySelectorAll(".type-pill").forEach(function(p) { p.classList.remove("active"); });
+      pill.classList.add("active");
+      applyAllFilters();
+    });
+    center.appendChild(pill);
+  });
+
   bar.appendChild(center);
 
   var right = el("div", "topbar-right");

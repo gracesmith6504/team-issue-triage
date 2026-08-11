@@ -23,8 +23,10 @@ function buildTeamRouting() {
     var issues = d.team_issues[teamId] || [];
     var bugCount = 0;
     issues.forEach(function(iss) {
-      var labels = iss.labels || [];
-      if (labels.indexOf("bug") !== -1) bugCount++;
+      var title = (iss.issue_title || iss.title || "").toLowerCase();
+      var isBug = title.indexOf("bug:") === 0 || title.indexOf("bug(") === 0 ||
+                  title.indexOf("fix:") === 0 || title.indexOf("fix(") === 0;
+      if (isBug) bugCount++;
     });
 
     // Calculate percentages for urgency bar chart

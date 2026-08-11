@@ -17,10 +17,15 @@ function matchesFilters(issue) {
 
   // Bug/Feature type filter
   if (state.issueTypeFilter && state.issueTypeFilter !== "All") {
-    var labels = issue.labels || [];
-    var isBug = labels.indexOf("bug") !== -1;
+    var title = (issue.issue_title || issue.title || "").toLowerCase();
+    // Check title prefix for conventional commit types
+    var isBug = title.startsWith("bug:") || title.startsWith("bug(") ||
+                title.startsWith("fix:") || title.startsWith("fix(");
+    var isFeature = title.startsWith("feat:") || title.startsWith("feat(") ||
+                    title.startsWith("feature:") || title.startsWith("feature(");
+
     if (state.issueTypeFilter === "Bugs" && !isBug) return false;
-    if (state.issueTypeFilter === "Features" && isBug) return false;
+    if (state.issueTypeFilter === "Features" && !isFeature) return false;
   }
 
   // Team filter

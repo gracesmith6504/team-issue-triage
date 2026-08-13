@@ -57,6 +57,7 @@ def create_app(config: TriageConfig) -> FastAPI:
     app.state.config = config
     app.state.cached_html = None
     app.state.last_triage = None
+    app.state.last_report = None
     app.state.issue_count = 0
     app.state.enrichment = {}
     app.state.cycle_lock = threading.Lock()
@@ -82,8 +83,8 @@ def create_app(config: TriageConfig) -> FastAPI:
 
     @app.post("/api/refresh")
     async def refresh():
-        if app.state.last_triage:
-            last = datetime.fromisoformat(app.state.last_triage)
+        if app.state.last_report:
+            last = datetime.fromisoformat(app.state.last_report)
             elapsed = (datetime.now(timezone.utc) - last).total_seconds()
             if elapsed < _REFRESH_COOLDOWN_SECONDS:
                 return JSONResponse(
@@ -181,17 +182,18 @@ def _run_report_cycle(app: FastAPI) -> None:
         now = datetime.now(timezone.utc)
 
         # Load ALL issues (no date filter) for client-side time filtering
-        current = read_results_as_triage(config.assessment_log_path)
+        current = [r for r in read_results_as_triage(config.assessment_log_path)
+                   if not r.closed]
 
         # For trend comparison, still need previous period
         # Use last 30 days as the comparison window
         previous_start = now - timedelta(days=60)
         current_start = now - timedelta(days=30)
-        previous = read_results_as_triage(
+        previous = [r for r in read_results_as_triage(
             config.assessment_log_path,
             start_date=previous_start.isoformat(),
             end_date=current_start.isoformat(),
-        )
+        ) if not r.closed]
 
         llm_client = build_llm_client(config)
         model = resolve_model(config.llm_provider, config.llm_model)
@@ -226,6 +228,7 @@ def _run_report_cycle(app: FastAPI) -> None:
             report, enrichment=enrichment, sparklines=sparklines
         )
         app.state.last_triage = now.isoformat()
+        app.state.last_report = now.isoformat()
         app.state.issue_count = len(current)
 
         logger.info("Report generation complete: %d issues", len(current))

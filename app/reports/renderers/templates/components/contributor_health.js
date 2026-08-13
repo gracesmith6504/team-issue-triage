@@ -1,3 +1,68 @@
+function _countVouchedInRange() {
+  var completed = (d.vouch_status && d.vouch_status.completed_vouches) || [];
+  var cutoffMs = getFilterCutoffMs();
+  if (!cutoffMs) return completed.length;
+  var cutoffDate = Date.now() - cutoffMs;
+  return completed.filter(function(c) {
+    return new Date(c.vouched_at).getTime() >= cutoffDate;
+  }).length;
+}
+
+function _renderContribTiles(totalPending, longestWait) {
+  var tiles = document.querySelectorAll("#contributor-health .metric-tile");
+  if (tiles.length >= 3) {
+    tiles[0].querySelector(".tile-value").textContent = totalPending;
+    var vouchedCount = _countVouchedInRange();
+    tiles[1].querySelector(".tile-value").textContent = vouchedCount;
+    var label1 = tiles[1].querySelector(".tile-label");
+    var filterLabel = state.dateRange && state.dateRange !== "All" ? state.dateRange : "All Time";
+    if (label1) label1.textContent = "Vouched (" + filterLabel + ")";
+    tiles[2].querySelector(".tile-value").textContent = longestWait + " days";
+  }
+}
+
+function _renderVouchList(filteredVouches) {
+  var VOUCH_INITIAL_SHOW = 5;
+  var list = document.getElementById("vouch-list-container");
+  if (!list) return;
+  var filteredAuthors = {};
+  filteredVouches.forEach(function(v) { filteredAuthors[v.author] = true; });
+  var visibleCount = 0;
+  list.querySelectorAll(".vouch-row").forEach(function(row) {
+    var author = row.dataset.author;
+    if (filteredAuthors[author]) {
+      visibleCount++;
+      row.style.display = visibleCount <= VOUCH_INITIAL_SHOW ? "" : "none";
+    } else {
+      row.style.display = "none";
+    }
+  });
+  var wrap = list.closest(".section-collapse") || list.parentElement;
+  var viewMore = wrap.querySelector("a[style*='cursor:pointer']");
+  if (viewMore) {
+    var totalHidden = visibleCount - VOUCH_INITIAL_SHOW;
+    if (totalHidden > 0) {
+      viewMore.style.display = "";
+      viewMore.textContent = "View " + totalHidden + " more";
+    } else {
+      viewMore.style.display = "none";
+    }
+  }
+}
+
+function _renderBlockedPRs(filteredBlocked) {
+  var section = document.getElementById("contributor-health");
+  if (!section) return;
+  var filteredAuthors = {};
+  filteredBlocked.forEach(function(bp) { filteredAuthors[bp.author] = true; });
+  section.querySelectorAll(".blocked-contributor").forEach(function(card) {
+    var authorLink = card.querySelector(".bc-author a");
+    if (!authorLink) return;
+    var author = authorLink.textContent.replace("@", "");
+    card.style.display = filteredAuthors[author] ? "" : "none";
+  });
+}
+
 function buildContributorHealth() {
   var section = el("div", "section");
   section.id = "contributor-health";
@@ -10,14 +75,14 @@ function buildContributorHealth() {
 
   var tiles = el("div", "metric-tiles metric-tiles-3");
   var tData = [
-    {value: d.vouch_status.total_pending, label: "Pending Vouches", color: "var(--urgency-high)"},
-    {value: d.vouch_status.responded_in_7d, label: "Responded (< 7d)", color: "var(--status-healthy)"},
+    {value: d.vouch_status.total_pending, label: "Pending Vouches", color: "var(--urgency-high)", hint: "New contributors need a vouch from an existing contributor before PRs can merge"},
+    {value: ((d.vouch_status.completed_vouches) || []).length, label: "Vouched (All Time)", color: "var(--status-healthy)"},
     {value: d.vouch_status.longest_wait_days + " days", label: "Longest Wait", color: "var(--status-blocked)"}
   ];
   tData.forEach(function(t) {
     var tile = el("div", "metric-tile");
     tile.style.borderLeftColor = t.color;
-    tile.innerHTML = '<div class="tile-value" style="color:' + t.color + '">' + t.value + '</div><div class="tile-label">' + esc(t.label) + '</div>';
+    tile.innerHTML = '<div class="tile-value" style="color:' + t.color + '">' + t.value + '</div><div class="tile-label">' + esc(t.label) + (t.hint ? hintHTML(t.hint) : '') + '</div>';
     tiles.appendChild(tile);
   });
   wrap.appendChild(tiles);
@@ -27,6 +92,7 @@ function buildContributorHealth() {
 
   var VOUCH_INITIAL_SHOW = 5;
   var vouchList = el("div", "vouch-list");
+  vouchList.id = "vouch-list-container";
   var allVouches = d.vouch_status.pending_vouches;
   allVouches.forEach(function(v, idx) {
     var isDismissed = state.dismissed.indexOf(v.author) !== -1;

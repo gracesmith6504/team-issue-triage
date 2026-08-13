@@ -2,22 +2,22 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class PRStatus:
+class OpenPRSummary:
     number: int
     title: str
     url: str
     author: str
-    days_open: int
-    days_since_author_push: int
-    days_since_last_review: int
-    review_count: int
-    participants: list[str]
-    last_activity: str
+    created_at: str
+    updated_at: str
+    has_requested_reviewers: bool
     is_draft: bool
-    gator_label: str | None = None
-    actual_reviewers: list[str] = field(default_factory=list)
-    requested_non_codeowners: list[str] = field(default_factory=list)
-    auto_assigned: list[str] = field(default_factory=list)
+    has_gator_label: bool
+    author_association: str = "NONE"
+    review_count: int = 0
+    last_review_at: str = ""
+    last_human_comment_at: str = ""
+    last_author_comment_at: str = ""
+    participants: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -29,6 +29,7 @@ class PRHealthFindings:
     merge_velocity: int
     merge_velocity_prev: int
     avg_review_wait_days: float
-    stuck_prs: list[PRStatus]
     age_distribution: dict[str, dict]
     codeowners: list[str] = field(default_factory=list)
+    all_open_pr_summaries: list[OpenPRSummary] = field(default_factory=list)
+    merged_dates: list[str] = field(default_factory=list)

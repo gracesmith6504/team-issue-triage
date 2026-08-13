@@ -9,11 +9,12 @@ NOW = datetime(2026, 8, 1, 12, 0, 0, tzinfo=timezone.utc)
 VOUCH_CATEGORY_ID = "DIC_abc123"
 
 
-def _make_comment(body, association="NONE"):
+def _make_comment(body, association="NONE", created_at=None):
     return {
         "body": body,
         "author": {"login": "reviewer"},
         "authorAssociation": association,
+        "createdAt": created_at or "2026-08-01T12:00:00Z",
     }
 
 
@@ -202,14 +203,14 @@ def test_responded_in_7d_counts_closed_vouched_discussions(mock_post, mock_dt):
             author="recentuser",
             created_days_ago=5,
             closed=True,
-            comments=[_make_comment("/vouch", "MEMBER")],
+            comments=[_make_comment("/vouch", "MEMBER", created_at="2026-07-30T12:00:00Z")],
         ),
         _make_discussion(
             2,
             author="olduser",
             created_days_ago=20,
             closed=True,
-            comments=[_make_comment("/vouch", "MEMBER")],
+            comments=[_make_comment("/vouch", "MEMBER", created_at="2026-07-10T12:00:00Z")],
         ),
         _make_discussion(3, author="waitinguser", created_days_ago=3),
     ]
@@ -219,5 +220,6 @@ def test_responded_in_7d_counts_closed_vouched_discussions(mock_post, mock_dt):
     ]
     result = fetch_vouch_status("test/repo", "fake-token")
     assert result.responded_in_7d == 1
+    assert len(result.completed_vouches) == 2
     assert result.total_pending == 1
     assert result.pending_vouches[0].author == "waitinguser"

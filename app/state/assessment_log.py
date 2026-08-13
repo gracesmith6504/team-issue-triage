@@ -29,6 +29,8 @@ def result_to_record(result: TriageResult) -> dict:
         "created_at": result.created_at,
         "author_association": result.author_association,
         "author_login": result.author_login,
+        "labels": result.labels,
+        "closed": result.closed,
     }
 
 
@@ -53,6 +55,8 @@ def record_to_result(record: dict) -> TriageResult:
         created_at=record.get("created_at", ""),
         author_association=record.get("author_association", "NONE"),
         author_login=record.get("author_login", ""),
+        labels=record.get("labels", []),
+        closed=record.get("closed", False),
     )
 
 

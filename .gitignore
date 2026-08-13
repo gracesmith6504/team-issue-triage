@@ -6,3 +6,4 @@ dist/
 build/
 data/
 .DS_Store
+quick_render.py

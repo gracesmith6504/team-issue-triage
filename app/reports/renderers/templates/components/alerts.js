@@ -2,13 +2,12 @@ function buildAlerts() {
   var strip = el("div", "alert-strip");
   var highCount = d.summary.by_urgency.high || 0;
   var alertData = [
-    {color: "#d1242f", text: '<strong>' + highCount + '</strong> high-urgency issues this period'}
+    {key: "issues", color: "#d1242f", text: '<strong>' + highCount + '</strong> high-urgency issues this period'}
   ];
 
   if (d.pr_health) {
     var staleCount = d.pr_health.stale_14d || 0;
-    var longestStuck = d.pr_health.stuck_prs.length ? d.pr_health.stuck_prs[0] : null;
-    alertData.push({color: "#d4a015", text: '<strong>' + staleCount + '</strong> PRs stale for 14+ days' + (longestStuck ? ' - oldest: <a href="' + esc(longestStuck.url) + '" target="_blank">#' + longestStuck.number + '</a> (' + longestStuck.days_open + ' days)' : '')});
+    alertData.push({key: "prs", color: "#d4a015", text: '<strong>' + staleCount + '</strong> PRs stale for 14+ days'});
   }
 
   if (d.vouch_status) {
@@ -18,11 +17,12 @@ function buildAlerts() {
     var vouchText = '<strong>' + vouchCount + '</strong> contributors waiting for vouch';
     if (longestVouch) vouchText += ' - longest: <a href="' + esc(longestVouch.url) + '" target="_blank">@' + esc(longestVouch.author) + '</a> (' + longestVouch.wait_days + ' days)';
     if (blockedPRs.length) vouchText += ' - <strong>' + blockedPRs.length + '</strong> PR' + (blockedPRs.length > 1 ? 's' : '') + ' blocked';
-    alertData.push({color: "#e16f24", text: vouchText});
+    alertData.push({key: "vouches", color: "#e16f24", text: vouchText});
   }
 
   alertData.forEach(function(a) {
     var line = el("div", "alert-line");
+    line.dataset.alert = a.key;
     line.innerHTML = '<span class="alert-dot" style="background:' + a.color + ';"></span>' + a.text;
     strip.appendChild(line);
   });

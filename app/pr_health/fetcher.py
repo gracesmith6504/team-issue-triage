@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-from app.pr_health.models import PRHealthFindings, PRStatus
+from app.pr_health.models import OpenPRSummary, PRHealthFindings
 from app.sources.github import GITHUB_API
 
 logger = logging.getLogger(__name__)
@@ -49,16 +49,15 @@ def fetch_pr_health(
 
     age_distribution = _compute_age_distribution(open_prs, now)
 
-    stuck_prs = _find_stuck_prs(repo, open_prs, headers, codeowners_set, now)
+    all_open_pr_summaries = _build_enriched_summaries(
+        repo, open_prs, headers, now,
+    )
 
     avg_review_wait = 0.0
-    if stuck_prs:
-        avg_review_wait = round(
-            sum(p.days_since_last_review for p in stuck_prs) / len(stuck_prs),
-            1,
-        )
 
-    velocity, velocity_prev = _compute_merge_velocity(repo, headers, now)
+    velocity, velocity_prev, merged_dates = _compute_merge_velocity(
+        repo, headers, now
+    )
 
     return PRHealthFindings(
         total_open=total_open,
@@ -68,9 +67,10 @@ def fetch_pr_health(
         merge_velocity=velocity,
         merge_velocity_prev=velocity_prev,
         avg_review_wait_days=avg_review_wait,
-        stuck_prs=stuck_prs[:6],
         age_distribution=age_distribution,
         codeowners=codeowners,
+        all_open_pr_summaries=all_open_pr_summaries,
+        merged_dates=merged_dates,
     )
 
 
@@ -121,132 +121,114 @@ def _compute_age_distribution(prs: list[dict], now: datetime) -> dict[str, dict]
     return buckets
 
 
-def _find_stuck_prs(
+_BOT_LOGINS = {"github-actions", "copy-pr-bot", "gator-agent"}
+
+
+def _is_bot(login: str) -> bool:
+    return login.endswith("[bot]") or login.endswith("-bot") or login in _BOT_LOGINS
+
+
+def _gh_get_all(url: str, headers: dict) -> list:
+    all_items: list = []
+    page = 1
+    while True:
+        batch = _gh_get(url, headers, params={"per_page": 100, "page": page})
+        if not isinstance(batch, list):
+            return [batch]
+        all_items.extend(batch)
+        if len(batch) < 100:
+            break
+        page += 1
+    return all_items
+
+
+def _build_enriched_summaries(
     repo: str,
     all_prs: list[dict],
     headers: dict,
-    codeowners: set[str],
     now: datetime,
-) -> list[PRStatus]:
-    oldest = sorted(all_prs, key=lambda p: p["created_at"])
-    results: list[PRStatus] = []
+) -> list[OpenPRSummary]:
+    summaries: list[OpenPRSummary] = []
 
-    for pr in oldest[:20]:
+    for pr in all_prs:
         num = pr["number"]
-        if pr.get("draft"):
-            continue
-        created = _parse_dt(pr["created_at"])
-        age = (now - created).days
-        if age < 7:
-            continue
+        author = pr.get("user", {}).get("login", "")
+        author_association = pr.get("author_association", "NONE")
+        is_draft = bool(pr.get("draft"))
 
-        try:
-            reviews = _gh_get(f"{GITHUB_API}/repos/{repo}/pulls/{num}/reviews", headers)
-            comments = _gh_get(
-                f"{GITHUB_API}/repos/{repo}/issues/{num}/comments", headers
-            )
-            commits = _gh_get(f"{GITHUB_API}/repos/{repo}/pulls/{num}/commits", headers)
-        except Exception:
-            logger.exception("Failed to fetch details for PR #%d", num)
-            continue
-
-        author = pr["user"]["login"]
-        actual_reviewers: set[str] = set()
-        last_review_date = None
         review_count = 0
+        last_review_at = ""
+        last_human_comment_at = ""
+        last_author_comment_at = ""
+        participants: list[str] = []
 
-        for r in reviews:
-            reviewer = r["user"]["login"]
-            if (
-                reviewer not in codeowners
-                and reviewer != author
-                and not reviewer.endswith("[bot]")
-            ):
-                actual_reviewers.add(reviewer)
-            if reviewer != author:
-                review_count += 1
-                rd = _parse_dt(r["submitted_at"])
-                if last_review_date is None or rd > last_review_date:
-                    last_review_date = rd
+        if not is_draft:
+            try:
+                reviews = _gh_get_all(
+                    f"{GITHUB_API}/repos/{repo}/pulls/{num}/reviews", headers,
+                )
+                comments = _gh_get_all(
+                    f"{GITHUB_API}/repos/{repo}/issues/{num}/comments", headers,
+                )
+            except Exception:
+                logger.exception("Failed to enrich PR #%d", num)
+                reviews, comments = [], []
 
-        participants: set[str] = set()
-        last_comment_date = None
-        for c in comments:
-            commenter = c["user"]["login"]
-            if commenter != author and not commenter.endswith("[bot]"):
-                participants.add(commenter)
-                cd = _parse_dt(c["created_at"])
-                if last_comment_date is None or cd > last_comment_date:
-                    last_comment_date = cd
+            engaged: set[str] = set()
+            for r in reviews:
+                if r.get("state") == "PENDING":
+                    continue
+                reviewer = r["user"]["login"]
+                if reviewer != author and not _is_bot(reviewer):
+                    review_count += 1
+                    engaged.add(reviewer)
+                    submitted = r.get("submitted_at", "")
+                    if submitted > last_review_at:
+                        last_review_at = submitted
 
-        last_author_commit = None
-        for c in reversed(commits):
-            if c.get("author") and c["author"].get("login") == author:
-                last_author_commit = _parse_dt(c["commit"]["author"]["date"])
-                break
-        if not last_author_commit:
-            last_author_commit = created
+            for c in comments:
+                commenter = c["user"]["login"]
+                if _is_bot(commenter):
+                    continue
+                created = c.get("created_at", "")
+                if commenter == author:
+                    if created > last_author_comment_at:
+                        last_author_comment_at = created
+                else:
+                    engaged.add(commenter)
+                    if created > last_human_comment_at:
+                        last_human_comment_at = created
 
-        days_since_author = (now - last_author_commit).days
-        days_since_review = (now - last_review_date).days if last_review_date else age
-        days_since_comment = (
-            (now - last_comment_date).days if last_comment_date else None
-        )
+            participants = sorted(engaged)
 
-        gator = None
-        for label in pr.get("labels", []):
-            if label["name"].startswith("gator:"):
-                gator = label["name"]
-                break
+        summaries.append(OpenPRSummary(
+            number=num,
+            title=pr.get("title", ""),
+            url=pr.get("html_url", ""),
+            author=author,
+            created_at=pr["created_at"],
+            updated_at=pr["updated_at"],
+            has_requested_reviewers=bool(pr.get("requested_reviewers")),
+            is_draft=is_draft,
+            has_gator_label=any(
+                lbl["name"].startswith("gator:")
+                for lbl in pr.get("labels", [])
+            ),
+            author_association=author_association,
+            review_count=review_count,
+            last_review_at=last_review_at,
+            last_human_comment_at=last_human_comment_at,
+            last_author_comment_at=last_author_comment_at,
+            participants=participants,
+        ))
 
-        requested = [
-            r["login"]
-            for r in pr.get("requested_reviewers", [])
-            if r["login"] not in codeowners
-        ]
-        auto_assigned = [
-            r["login"]
-            for r in pr.get("requested_reviewers", [])
-            if r["login"] in codeowners
-        ]
-
-        all_engaged = actual_reviewers | participants
-        activity_parts = [f"Author pushed {days_since_author}d ago"]
-        if last_review_date:
-            activity_parts.append(f"last review {days_since_review}d ago")
-        else:
-            activity_parts.append("no reviews")
-        most_recent_other = min(
-            d for d in [days_since_author, days_since_review] if d is not None
-        )
-        if days_since_comment is not None and days_since_comment < most_recent_other:
-            activity_parts.append(f"last comment {days_since_comment}d ago")
-
-        results.append(
-            PRStatus(
-                number=num,
-                title=pr["title"],
-                url=pr["html_url"],
-                author=author,
-                days_open=age,
-                days_since_author_push=days_since_author,
-                days_since_last_review=days_since_review,
-                review_count=review_count,
-                participants=sorted(all_engaged),
-                last_activity=", ".join(activity_parts),
-                is_draft=False,
-                gator_label=gator,
-                actual_reviewers=sorted(actual_reviewers),
-                requested_non_codeowners=sorted(requested),
-                auto_assigned=sorted(auto_assigned),
-            )
-        )
-
-    results.sort(key=lambda p: p.days_since_last_review, reverse=True)
-    return results
+    logger.info("Enriched %d/%d PRs (skipped drafts)", len(summaries), len(all_prs))
+    return summaries
 
 
-def _compute_merge_velocity(repo: str, headers: dict, now: datetime) -> tuple[int, int]:
+def _compute_merge_velocity(
+    repo: str, headers: dict, now: datetime
+) -> tuple[int, int, list[str]]:
     try:
         merged_resp = _gh_get(
             f"{GITHUB_API}/repos/{repo}/pulls",
@@ -260,20 +242,22 @@ def _compute_merge_velocity(repo: str, headers: dict, now: datetime) -> tuple[in
         )
     except Exception:
         logger.exception("Failed to fetch merged PRs")
-        return 0, 0
+        return 0, 0, []
 
     week_ago = now - timedelta(days=7)
     two_weeks_ago = now - timedelta(days=14)
     this_week = 0
     last_week = 0
+    merged_dates: list[str] = []
 
     for pr in merged_resp:
         if not pr.get("merged_at"):
             continue
+        merged_dates.append(pr["merged_at"])
         merged = _parse_dt(pr["merged_at"])
         if merged >= week_ago:
             this_week += 1
         elif merged >= two_weeks_ago:
             last_week += 1
 
-    return this_week, last_week
+    return this_week, last_week, merged_dates

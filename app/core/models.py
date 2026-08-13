@@ -46,6 +46,8 @@ class TriageResult:
     author_association: str = "NONE"
     author_login: str = ""
     labels: list[str] = field(default_factory=list)
+    comment_count: int = 0
+    closed: bool = False
 
 
 @dataclass

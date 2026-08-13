@@ -8,6 +8,7 @@ var URGENCY_SHORT = {"critical": "CRIT", "high": "HIGH", "medium": "MED", "low":
 
 function esc(t) { var d = document.createElement("div"); d.appendChild(document.createTextNode(t)); return d.innerHTML; }
 function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; }
+function hintHTML(text) { return ' <span class="hint-wrap"><span class="hint-trigger">i</span><span class="hint-popup">' + esc(text) + '</span></span>'; }
 function tc(team) { return TEAM_COLORS[team] || "#64748B"; }
 function uc(u) { return URGENCY_COLORS[u] || "#64748B"; }
 
@@ -42,7 +43,28 @@ function saveState(s) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s
 var state = loadState();
 if (!state.dismissed) state.dismissed = [];
 if (!state.collapsed) state.collapsed = {};
-if (!state.dateRange) state.dateRange = "30d";
-if (!state.issueTypeFilter) state.issueTypeFilter = "All";
+state.dateRange = "All";
+state.issueTypeFilter = "Any";
 
 var d = REPORT_DATA;
+
+function getFilterCutoffMs() {
+  if (!state.dateRange || state.dateRange === "All") return null;
+  var hours = state.dateRange === "24h" ? 24 : state.dateRange === "7d" ? 168 : 720;
+  return hours * 60 * 60 * 1000;
+}
+
+function _staleDaysThreshold() {
+  if (!state.dateRange || state.dateRange === "All") return 14;
+  if (state.dateRange === "24h") return null;
+  if (state.dateRange === "7d") return 5;
+  if (state.dateRange === "14d") return 7;
+  return 14;
+}
+
+function isWithinFilter(isoDateStr) {
+  var cutoffMs = getFilterCutoffMs();
+  if (cutoffMs === null) return true;
+  if (!isoDateStr) return true;
+  return (new Date() - new Date(isoDateStr)) <= cutoffMs;
+}

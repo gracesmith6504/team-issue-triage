@@ -63,8 +63,12 @@ def _report_to_dict(
             continue
         seen_issue_numbers.add(issue_num)
 
-        # Use keyword inference for area classification
-        issue["area"] = _get_area(
+        area_label = next(
+            (lbl.split(":", 1)[1] for lbl in issue.get("labels", [])
+             if lbl.startswith("area:")),
+            None,
+        )
+        issue["area"] = area_label or _get_area(
             issue.get("issue_title", ""), issue.get("summary", "")
         )
         created_at = issue.get("created_at", "")
@@ -74,12 +78,8 @@ def _report_to_dict(
         else:
             issue["days_open"] = 0
         issue["has_linked_pr"] = False
-        issue["comment_count"] = 0
 
-        # Truncate summary for readability
         summary = issue.get("summary", "")
-        if len(summary) > 180:
-            summary = summary[:177] + "..."
 
         team = issue.get("primary_team", "none")
         team_issues.setdefault(team, []).append(
@@ -95,8 +95,10 @@ def _report_to_dict(
                 "author_association": issue.get("author_association", "NONE"),
                 "days_open": issue.get("days_open", 0),
                 "has_linked_pr": issue.get("has_linked_pr", False),
+                "created_at": issue.get("created_at", ""),
                 "summary": summary,
                 "labels": issue.get("labels", []),
+                "comment_count": issue.get("comment_count", 0),
             }
         )
 
@@ -158,6 +160,11 @@ def _report_to_dict(
                 team["synthesis"] = {
                     "focus_summary": synth.get("focus_summary", ""),
                     "actions": synth.get("actions", []),
+                    "claims": synth.get("claims"),
+                    "structured_actions": synth.get("structured_actions"),
+                    "generated_at": synth.get("generated_at", ""),
+                    "covered_issues": synth.get("covered_issues", 0),
+                    "model": synth.get("model", ""),
                 }
 
     return data

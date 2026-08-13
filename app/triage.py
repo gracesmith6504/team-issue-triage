@@ -235,12 +235,13 @@ def check_closed_issues(config: TriageConfig) -> None:
                     urgency=result.urgency,
                     urgency_reasoning=result.urgency_reasoning,
                     summary=result.summary,
+                    recommendation=getattr(result, "recommendation", ""),
                     confidence_flag=result.confidence_flag,
                     assessed_at=datetime.now(timezone.utc).isoformat(),
                     created_at=result.created_at,
                     author_association=result.author_association,
                     author_login=result.author_login,
-                    closed=True,  # Mark as closed
+                    closed=True,
                 )
 
                 append_result(config.assessment_log_path, closed_result)

@@ -96,12 +96,13 @@ class BirdsEyeReportGenerator:
         duplicate_clusters = self._detect_duplicates()
         no_team_list = self._extract_no_team_list()
         team_synthesis = self._build_team_synthesis()
+        deltas = self._compute_team_deltas()
 
         # Generate LLM-based focus summaries and action items
         try:
             from app.reports.synthesis import synthesize_team_summaries
             team_synthesis = synthesize_team_summaries(
-                team_synthesis, self._llm_client, self._model
+                team_synthesis, deltas, self._llm_client, self._model
             )
         except Exception:
             logger.exception("Team synthesis generation failed, using empty summaries")
@@ -216,6 +217,40 @@ class BirdsEyeReportGenerator:
 
     def _extract_no_team_list(self) -> list[TriageResult]:
         return [r for r in self._current if r.primary_team == "none"]
+
+    def _compute_team_deltas(self) -> dict[str, dict]:
+        current_by_num = {r.issue_number: r for r in self._current}
+        previous_by_num = {r.issue_number: r for r in self._previous}
+
+        current_nums = set(current_by_num.keys())
+        previous_nums = set(previous_by_num.keys())
+
+        new_nums = current_nums - previous_nums
+        resolved_nums = previous_nums - current_nums
+
+        # Group by team
+        deltas: dict[str, dict] = {}
+        for num in new_nums:
+            r = current_by_num[num]
+            team = r.primary_team
+            deltas.setdefault(team, {"new": [], "resolved": []})
+            deltas[team]["new"].append({
+                "number": r.issue_number,
+                "urgency": r.urgency.value,
+                "title": r.issue_title,
+            })
+
+        for num in resolved_nums:
+            r = previous_by_num[num]
+            team = r.primary_team
+            deltas.setdefault(team, {"new": [], "resolved": []})
+            deltas[team]["resolved"].append({
+                "number": r.issue_number,
+                "urgency": r.urgency.value,
+                "title": r.issue_title,
+            })
+
+        return deltas
 
     def _build_team_synthesis(self) -> dict[str, TeamSynthesis]:
         """Build TeamSynthesis structures with area grouping, without LLM summaries."""

@@ -40,6 +40,11 @@ class TeamSynthesis:
     total: int
     by_urgency: dict[str, int]
     trend: str
+    claims: list[dict] | None = None
+    structured_actions: list[dict] | None = None
+    generated_at: str = ""
+    covered_issues: int = 0
+    model: str = ""
 
 
 @dataclass

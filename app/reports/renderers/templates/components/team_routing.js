@@ -1,7 +1,182 @@
+function _issueByNumber(num) {
+  return d.all_issues.find(function(i) { return i.issue_number === num; });
+}
+
+function _issueRow(iss) {
+  if (!iss) return null;
+  var uClass = iss.urgency === "critical" ? "crit" : iss.urgency === "high" ? "high" : iss.urgency === "medium" ? "med" : "low";
+  var row = el("div", "ds-expand-item");
+  row.innerHTML =
+    '<span class="dot ' + uClass + '"></span>' +
+    '<a class="ds-expand-num" href="' + esc(iss.issue_url || iss.url || "") + '" target="_blank">#' + (iss.issue_number || iss.number) + '</a>' +
+    '<span class="ds-expand-title">' + esc(iss.issue_title || iss.title || "") + '</span>' +
+    '<span class="ds-expand-area">' + esc(iss.area || "") + '</span>' +
+    '<span class="ds-expand-days">' + (iss.days_open || 0) + 'd</span>';
+  return row;
+}
+
+function _disclosure(label, issues, opts) {
+  opts = opts || {};
+  var root = el(opts.inline ? "span" : "div", "disc" + (opts.cls ? " " + opts.cls : ""));
+  var btn = el("button", "disc-btn");
+  btn.innerHTML = '<span class="chev">&#9654;</span><span>' + label + '</span>';
+  var panel = el("div", "disc-panel");
+  issues.forEach(function(iss) {
+    var row = _issueRow(iss);
+    if (row) panel.appendChild(row);
+  });
+  btn.addEventListener("click", function() { root.classList.toggle("open"); });
+  root.appendChild(btn);
+  root.appendChild(panel);
+  return root;
+}
+
+function _renderClaimText(claim, teamId) {
+  var container = el("div", "ai-claim");
+  var text = claim.text || "";
+  var refs = claim.refs || {};
+  var parts = text.split(/(\{ref:[^}]+\}|\{area:[^}]+\})/g);
+
+  parts.forEach(function(part) {
+    var refMatch = part.match(/^\{ref:([^}]+)\}$/);
+    var areaMatch = part.match(/^\{area:([^}]+)\}$/);
+
+    if (refMatch) {
+      var key = refMatch[1];
+      var ref = refs[key] || {};
+      var label = ref.label || key.replace(/_/g, " ");
+      var issueNums = ref.issues || [];
+      var issues = issueNums.map(_issueByNumber).filter(Boolean);
+      var worst = issues.some(function(i) { return i.urgency === "critical"; }) ? "crit"
+        : issues.some(function(i) { return i.urgency === "high"; }) ? "high" : "";
+      var disc = _disclosure(label + " (" + issues.length + ")", issues, {
+        inline: true,
+        cls: "claim-ref" + (worst ? " " + worst : ""),
+      });
+      container.appendChild(disc);
+    } else if (areaMatch) {
+      var areaName = areaMatch[1];
+      var link = el("a", "ds-area-link");
+      link.textContent = areaName;
+      link.dataset.area = areaName;
+      link.dataset.team = teamId;
+      link.href = "#";
+      link.addEventListener("click", function(e) {
+        e.preventDefault();
+        var band = document.querySelector('.team-band[data-team="' + teamId + '"]');
+        if (!band) return;
+        var areas = band.querySelectorAll(".area-name");
+        areas.forEach(function(ah) {
+          if (ah.textContent.trim() === areaName) {
+            var sec = ah.closest(".area");
+            if (sec) {
+              sec.scrollIntoView({behavior: "smooth", block: "center"});
+              sec.classList.add("ds-highlight");
+              setTimeout(function() { sec.classList.remove("ds-highlight"); }, 1400);
+            }
+          }
+        });
+      });
+      container.appendChild(link);
+    } else if (part) {
+      container.appendChild(document.createTextNode(part));
+    }
+  });
+
+  return container;
+}
+
+function _timeSince(isoStr) {
+  if (!isoStr) return "";
+  var ms = Date.now() - new Date(isoStr).getTime();
+  var h = Math.round(ms / 3600000);
+  if (h < 1) return "just now";
+  if (h < 24) return h + "h ago";
+  return Math.round(h / 24) + "d ago";
+}
+
+function _renderAiContent(teamId, synth, container) {
+  var claims = synth.claims || [];
+  claims.forEach(function(claim) {
+    container.appendChild(_renderClaimText(claim, teamId));
+  });
+
+  var actions = synth.structured_actions || [];
+  if (actions.length) {
+    var actsEl = el("div", "ai-actions");
+    actions.forEach(function(action, i) {
+      var row = el("div", "ai-action");
+      var idx = el("span", "idx", (i + 1) + ".");
+      var bodySpan = el("span", "body");
+      bodySpan.appendChild(document.createTextNode(action.text + " "));
+
+      var issueNums = action.issues || [];
+      var issues = issueNums.map(_issueByNumber).filter(Boolean);
+      if (issues.length) {
+        var worst = issues.some(function(x) { return x.urgency === "critical"; }) ? "crit"
+          : issues.some(function(x) { return x.urgency === "high"; }) ? "high" : "med";
+        var countEl = el("span", "ai-count");
+        countEl.innerHTML = '<span class="dot ' + worst + '"></span>' + issues.length + " issue" + (issues.length !== 1 ? "s" : "");
+        bodySpan.appendChild(countEl);
+      }
+
+      row.appendChild(idx);
+      row.appendChild(bodySpan);
+      actsEl.appendChild(row);
+    });
+    container.appendChild(actsEl);
+  }
+}
+
+function renderStructuredFocus(teamId, synth) {
+  var wrap = el("div", "focus");
+  wrap.innerHTML = '<span class="focus-label">Focus</span>';
+
+  var body = el("div", "focus-body");
+
+  // AI analysis as a collapsible disclosure
+  var aiSection = el("div", "ai");
+
+  var metaBtn = el("button", "disc-btn ai-meta-btn");
+  var metaParts = '<span class="chev">&#9654;</span><span class="ai-meta-text">AI analysis';
+  if (synth.covered_issues) metaParts += ' &middot; ' + synth.covered_issues + ' issues';
+  if (synth.generated_at) metaParts += ' &middot; generated ' + _timeSince(synth.generated_at);
+  metaParts += '</span>';
+  metaBtn.innerHTML = metaParts;
+  aiSection.appendChild(metaBtn);
+
+  var aiPanel = el("div", "ai-panel");
+  if (synth.claims && synth.claims.length) {
+    _renderAiContent(teamId, synth, aiPanel);
+  } else if (synth.focus_summary) {
+    var claimEl = el("div", "ai-claim");
+    claimEl.textContent = synth.focus_summary;
+    aiPanel.appendChild(claimEl);
+    if (synth.actions && synth.actions.length) {
+      var actsEl = el("div", "ai-actions");
+      synth.actions.forEach(function(action, i) {
+        var row = el("div", "ai-action");
+        row.innerHTML = '<span class="idx">' + (i + 1) + '.</span><span class="body">' + esc(action) + '</span>';
+        actsEl.appendChild(row);
+      });
+      aiPanel.appendChild(actsEl);
+    }
+  }
+  aiSection.appendChild(aiPanel);
+
+  metaBtn.addEventListener("click", function() {
+    aiSection.classList.toggle("open");
+  });
+
+  body.appendChild(aiSection);
+  wrap.appendChild(body);
+  return wrap;
+}
+
 function buildTeamRouting() {
   var section = el("div", "section");
   section.id = "team-routing";
-  section.innerHTML = '<div class="section-header"><div class="section-title">Team Routing <span class="count">(' + d.all_issues.length + ' issues across ' + Object.keys(d.team_breakdown).length + ' teams)</span> <span class="info-icon" title="Issue format: ROLE @author 🔀=PR (green=open, grey=draft) age">ℹ️</span></div></div>';
+  section.innerHTML = '<div class="section-header"><div class="section-title">Team Routing <span class="count">(' + d.all_issues.length + ' issues across ' + Object.keys(d.team_breakdown).length + ' teams)</span></div></div>';
 
   var teamOrder = Object.keys(d.team_breakdown);
   // Sort teams: "none" (Unassigned) goes to bottom
@@ -50,16 +225,19 @@ function buildTeamRouting() {
     if (lowPct > 0) mixHTML += '<i class="low" style="width:' + lowPct + '%"></i>';
     mixHTML += '</span>';
 
-    // Build simplified trend
+    // Build simplified trend (hide when no baseline)
     var trendClass = "";
     var trendText = "";
-    if (trend.charAt(0) === "+") {
-      trendClass = "up";
-      trendText = "↑ " + trend.substring(1);
-    } else if (trend.charAt(0) === "-") {
-      trendText = "↓ " + trend.substring(1);
-    } else if (trend === "flat" || trend === "0") {
-      trendText = "→ flat";
+    var hasPrevious = (team.previous_period || 0) > 0;
+    if (hasPrevious) {
+      if (trend.charAt(0) === "+") {
+        trendClass = "up";
+        trendText = "↑ " + trend.substring(1);
+      } else if (trend.charAt(0) === "-") {
+        trendText = "↓ " + trend.substring(1);
+      } else if (trend === "flat" || trend === "0") {
+        trendText = "→ flat";
+      }
     }
     var trendHTML = trendText
       ? '<span class="trend ' + trendClass + '">' + trendText + '</span>'
@@ -79,7 +257,9 @@ function buildTeamRouting() {
 
     // Add focus section if synthesis data exists
     var synth = team.synthesis || {};
-    if (synth.focus_summary) {
+    if (synth.claims && synth.claims.length) {
+      content.appendChild(renderStructuredFocus(teamId, synth));
+    } else if (synth.focus_summary) {
       var summaryDiv = el("div", "focus");
       var summaryHTML = '<span class="focus-label">Focus</span><div>';
       summaryHTML += '<p>' + esc(synth.focus_summary) + '</p>';
@@ -166,8 +346,8 @@ function buildTeamRouting() {
           // Display COLLABORATOR as MAINTAINER (they have write access = maintainers)
           var displayRole = authorAssoc === 'COLLABORATOR' ? 'MAINTAINER' : authorAssoc;
           var authorBadge = '';
-          if (authorAssoc !== 'NONE') {
-            authorBadge = '<span class="author-role">' + esc(displayRole) + '</span>';
+          if (displayRole === 'MAINTAINER') {
+            authorBadge = '<span class="author-role maintainer">Maintainer</span>';
           }
 
           // Format PR icon (green if open, grey if draft, clickable)
@@ -181,6 +361,7 @@ function buildTeamRouting() {
           }
 
           row.className = 'issue ' + urgencyClass;
+          row.dataset.issueNumber = iss.issue_number || iss.number;
           row.innerHTML =
             '<div class="issue-top">' +
               '<i class="dot ' + dotClass + '"></i>' +
@@ -191,6 +372,7 @@ function buildTeamRouting() {
                 (authorBadge ? authorBadge + ' ' : '') +
                 (iss.author_login ? '<span>@' + esc(iss.author_login) + '</span>' : '') +
                 (prIcon ? ' ' + prIcon : '') +
+                (iss.comment_count ? ' <span title="' + iss.comment_count + ' comments">💬' + iss.comment_count + '</span>' : '') +
                 (iss.days_open != null ? ' <span>' + iss.days_open + 'd</span>' : '') +
               '</span>' +
             '</div>' +

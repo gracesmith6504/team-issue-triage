@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 import requests
 
-from app.vouch.models import PendingVouch, VouchFindings
+from app.vouch.models import CompletedVouch, PendingVouch, VouchFindings
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,7 @@ query($owner: String!, $name: String!, $catId: ID!) {
             body
             author { login }
             authorAssociation
+            createdAt
           }
         }
       }
@@ -67,27 +68,35 @@ def fetch_vouch_status(repo: str, token: str) -> VouchFindings:
     now = datetime.now(timezone.utc)
 
     pending: list[PendingVouch] = []
-    responded_count = 0
+    completed: list[CompletedVouch] = []
 
     for disc in discussions:
         author = disc["author"]["login"] if disc.get("author") else "unknown"
         created = datetime.fromisoformat(disc["createdAt"].replace("Z", "+00:00"))
         wait_days = (now - created).days
+        disc_url = f"https://github.com/{owner}/{name}/discussions/{disc['number']}"
 
-        has_vouch = _check_vouched(disc)
+        vouched_at = _check_vouched(disc)
 
-        if has_vouch and wait_days <= 7:
-            responded_count += 1
+        if vouched_at:
+            completed.append(
+                CompletedVouch(
+                    author=author,
+                    discussion_number=disc["number"],
+                    url=disc_url,
+                    vouched_at=vouched_at,
+                )
+            )
 
         if disc.get("closed"):
             continue
 
-        if not has_vouch:
+        if not vouched_at:
             pending.append(
                 PendingVouch(
                     author=author,
                     discussion_number=disc["number"],
-                    url=f"https://github.com/{owner}/{name}/discussions/{disc['number']}",
+                    url=disc_url,
                     wait_days=wait_days,
                     created_at=disc["createdAt"],
                 )
@@ -97,12 +106,20 @@ def fetch_vouch_status(repo: str, token: str) -> VouchFindings:
     longest = pending[0].wait_days if pending else 0
     over_30d = sum(1 for v in pending if v.wait_days > 30)
 
+    responded_count = sum(
+        1 for c in completed
+        if (now - datetime.fromisoformat(
+            c.vouched_at.replace("Z", "+00:00")
+        )).days <= 7
+    )
+
     return VouchFindings(
         total_pending=len(pending),
         responded_in_7d=responded_count,
         longest_wait_days=longest,
         over_30d_count=over_30d,
         pending_vouches=pending,
+        completed_vouches=completed,
     )
 
 
@@ -150,10 +167,11 @@ def _fetch_discussions(owner: str, name: str, cat_id: str, headers: dict) -> lis
     )
 
 
-def _check_vouched(discussion: dict) -> bool:
+def _check_vouched(discussion: dict) -> str | None:
+    """Return the timestamp of the first /vouch comment, or None."""
     for comment in discussion.get("comments", {}).get("nodes", []):
         body = (comment.get("body") or "").strip().lower()
         assoc = comment.get("authorAssociation", "")
         if "/vouch" in body and assoc in VOUCH_ASSOCIATIONS:
-            return True
-    return False
+            return comment.get("createdAt", "")
+    return None

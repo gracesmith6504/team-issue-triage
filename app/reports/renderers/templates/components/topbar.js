@@ -31,7 +31,7 @@ function buildTopBar() {
 
   var center = el("div", "topbar-center");
 
-  // Time filter buttons
+  var dateGroup = el("div", "seg-group");
   ["24h", "7d", "30d", "All"].forEach(function(range) {
     var pill = el("button", "date-pill" + (state.dateRange === range ? " active" : ""));
     pill.textContent = range;
@@ -42,16 +42,12 @@ function buildTopBar() {
       pill.classList.add("active");
       applyAllFilters();
     });
-    center.appendChild(pill);
+    dateGroup.appendChild(pill);
   });
+  center.appendChild(dateGroup);
 
-  // Spacer
-  var spacer = el("span", "filter-spacer");
-  spacer.textContent = "|";
-  center.appendChild(spacer);
-
-  // Bug/Feature filter buttons
-  ["All", "Bugs", "Features"].forEach(function(filter) {
+  var typeGroup = el("div", "seg-group");
+  ["Any", "Bugs", "Features"].forEach(function(filter) {
     var pill = el("button", "type-pill" + (state.issueTypeFilter === filter ? " active" : ""));
     pill.textContent = filter;
     pill.addEventListener("click", function() {
@@ -61,8 +57,9 @@ function buildTopBar() {
       pill.classList.add("active");
       applyAllFilters();
     });
-    center.appendChild(pill);
+    typeGroup.appendChild(pill);
   });
+  center.appendChild(typeGroup);
 
   bar.appendChild(center);
 

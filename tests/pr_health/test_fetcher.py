@@ -92,6 +92,53 @@ def test_fetch_pr_health_returns_findings(mock_get, mock_dt):
 
 @patch("app.pr_health.fetcher.datetime")
 @patch("app.pr_health.fetcher.requests.get")
+def test_all_open_pr_summaries_populated(mock_get, mock_dt):
+    _patch_dt(mock_dt)
+    prs = [
+        _make_pr(1, created_days_ago=3, requested_reviewers=[{"login": "rev"}]),
+        _make_pr(2, created_days_ago=5, draft=True),
+        _make_pr(3, created_days_ago=1, labels=[{"name": "gator:in-review"}]),
+    ]
+    mock_get.side_effect = [
+        _make_response(prs),
+        _make_response([]),
+    ]
+    result = fetch_pr_health("test/repo", "fake-token")
+    assert len(result.all_open_pr_summaries) == 3
+    s1 = result.all_open_pr_summaries[0]
+    assert s1.number == 1
+    assert s1.created_at == prs[0]["created_at"]
+    assert s1.has_requested_reviewers is True
+    assert s1.is_draft is False
+    s2 = result.all_open_pr_summaries[1]
+    assert s2.is_draft is True
+    s3 = result.all_open_pr_summaries[2]
+    assert s3.has_gator_label is True
+
+
+@patch("app.pr_health.fetcher.datetime")
+@patch("app.pr_health.fetcher.requests.get")
+def test_merged_dates_populated(mock_get, mock_dt):
+    _patch_dt(mock_dt)
+    merged_at_1 = (NOW - timedelta(days=2)).isoformat()
+    merged_at_2 = (NOW - timedelta(days=10)).isoformat()
+    closed_prs = [
+        _make_pr(10, merged_at=merged_at_1),
+        _make_pr(11, merged_at=merged_at_2),
+        _make_pr(12),  # closed but not merged
+    ]
+    mock_get.side_effect = [
+        _make_response([]),
+        _make_response(closed_prs),
+    ]
+    result = fetch_pr_health("test/repo", "fake-token")
+    assert len(result.merged_dates) == 2
+    assert merged_at_1 in result.merged_dates
+    assert merged_at_2 in result.merged_dates
+
+
+@patch("app.pr_health.fetcher.datetime")
+@patch("app.pr_health.fetcher.requests.get")
 def test_stuck_prs_skips_drafts(mock_get, mock_dt):
     _patch_dt(mock_dt)
     draft_pr = _make_pr(1, created_days_ago=30, draft=True)
@@ -131,6 +178,7 @@ def test_stuck_prs_filters_codeowners_from_participants(mock_get, mock_dt):
     result = fetch_pr_health("test/repo", "fake-token", codeowners=["mrunalp"])
     assert len(result.stuck_prs) == 1
     assert "mrunalp" not in result.stuck_prs[0].participants
+    assert result.stuck_prs[0].created_at == old_pr["created_at"]
 
 
 @patch("app.pr_health.fetcher.datetime")

@@ -46,7 +46,7 @@ class SectionCache:
         with self._lock:
             self._store.pop(section, None)
             if self._persist_dir:
-                path = self._persist_dir / f"{section}.json"
+                path = self._persist_dir / f"{self._section_filename(section)}.json"
                 path.unlink(missing_ok=True)
 
     def all_meta(self) -> dict[str, dict]:
@@ -66,8 +66,12 @@ class SectionCache:
         elapsed = (datetime.now(timezone.utc) - generated).total_seconds()
         return elapsed > entry.ttl_seconds
 
+    @staticmethod
+    def _section_filename(section: str) -> str:
+        return getattr(section, "value", section)
+
     def _persist(self, section: str, entry: CachedSection) -> None:
-        path = self._persist_dir / f"{section}.json"
+        path = self._persist_dir / f"{self._section_filename(section)}.json"
         try:
             tmp = path.with_suffix(".tmp")
             with open(tmp, "w") as f:

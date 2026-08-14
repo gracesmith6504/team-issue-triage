@@ -17,7 +17,15 @@ spec:
           containers:
             - name: triage
               image: quay.io/rh-ee-grasmith/team-issue-triage:latest
-              args: ["--mode", "triage"]
+              args: ["--mode", "worker-triage"]
+              env:
+                - name: DASHBOARD_URL
+                  value: "http://triage-dashboard.team-issue-triage.svc:8080"
+                - name: DASHBOARD_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: triage-secrets
+                      key: API_TOKEN
               envFrom:
                 - configMapRef:
                     name: triage-config
@@ -34,15 +42,10 @@ spec:
                 runAsNonRoot: true
                 allowPrivilegeEscalation: false
               volumeMounts:
-                - name: state
-                  mountPath: /data
                 - name: gcp-credentials
                   mountPath: /etc/gcp
                   readOnly: true
           volumes:
-            - name: state
-              persistentVolumeClaim:
-                claimName: triage-state
             - name: gcp-credentials
               secret:
                 secretName: gcp-vertex-credentials

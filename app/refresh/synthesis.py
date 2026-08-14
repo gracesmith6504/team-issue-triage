@@ -83,13 +83,18 @@ def _generate_narrative(config, issues_data, llm_client, model) -> str:
     critical = by_urgency.get("critical", 0)
     high = by_urgency.get("high", 0)
 
-    prompt = (
+    system = "You are a technical lead writing a brief status update for leadership. Respond with valid JSON only."
+    user_prompt = (
         f"Write a 2-3 sentence executive summary of the current issue landscape. "
         f"Total open: {total}. Critical: {critical}. High: {high}. "
-        f"Be concise and actionable."
+        f"Be concise and actionable. "
+        f'Respond as: {{"narrative": "your summary here"}}'
     )
     try:
-        return llm_client.assess(prompt, model=model)
+        result = llm_client.assess(system, user_prompt, model)
+        if isinstance(result, dict):
+            return result.get("narrative", "")
+        return ""
     except Exception:
         logger.exception("Narrative generation failed")
         return ""

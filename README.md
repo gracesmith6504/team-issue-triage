@@ -1,323 +1,348 @@
-# team-issue-triage
+<div align="center">
 
-Multi-team GitHub issue triage agent for OpenShell. Classifies which of 6 Red Hat teams should own each new issue, rates urgency, sends Slack alerts, and serves a live dashboard with a cross-team bird's eye view report.
+# Team Issue Triage
+
+**AI-powered issue triage agent that classifies, routes, and reports on GitHub issues across multiple teams.**
+
+[![Tests](https://img.shields.io/badge/tests-332%20passing-brightgreen)]()
+[![Python](https://img.shields.io/badge/python-3.12+-blue)]()
+[![LLM](https://img.shields.io/badge/LLM-Claude%20Sonnet-blueviolet)]()
+[![Deploy](https://img.shields.io/badge/deploy-Kubernetes-326CE5)]()
+
+[Live Demo (OpenShell)](https://triage-dashboard-team-issue-triage.apps.rosa.agent-ops.0lts.p3.openshiftapps.com) ·
+[API Docs](#api-reference) ·
+[Deploy Your Own](#deploy-to-kubernetes)
+
+</div>
+
+---
+
+Point it at any GitHub repo, define your teams in YAML, and the agent handles the rest: classifies every new issue to the right team, rates urgency, sends Slack alerts for critical items, and serves a live dashboard with cross-team analytics.
+
+Built for [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) by the Red Hat AI Agent Ops team. Designed to work with any repo — bring your own teams, thresholds, and notification channels.
 
 ## How It Works
 
-The system runs two cycles:
+```mermaid
+flowchart LR
+    subgraph Triage["Hourly Triage (CronJob)"]
+        GH["GitHub Issues"] --> SIG["Signal\nExtraction"]
+        SIG --> LLM["LLM\nClassification"]
+        LLM --> CONF["Confidence\nRules"]
+        CONF --> LOG["Assessment\nLog"]
+        CONF --> SLACK["Slack\nAlerts"]
+    end
 
-**Hourly triage** — fast, real-time issue classification and notifications:
+    subgraph Dashboard["Live Dashboard (Deployment)"]
+        direction TB
+        API["REST API"]
+        CACHE["Section Cache\n(TTL-based)"]
+        UI["Browser UI"]
+        API --- CACHE
+        UI -->|fetch| API
+    end
+
+    LOG -->|POST /api/assessments| API
+
+    subgraph Refresh["Background Refresh"]
+        R_ISS["Issues\n(2h)"]
+        R_PR["PR Health\n(4h)"]
+        R_SYN["Synthesis\n(24h)"]
+    end
+
+    CACHE --- Refresh
 ```
-GitHub Issues → Signal Extraction → LLM Classification → Confidence Rules → Notify
-```
 
-1. **Fetch** — pulls all new issues from watched repos via GitHub API, skipping already-seen issues
-2. **Extract signals** — parses conventional commit title prefixes (`feat(cli):`) and filters labels (`area:*`, `topic:*`)
-3. **Classify** — one Claude Sonnet call per new issue with all 6 team descriptions, routing table, and calibration examples
-4. **Apply confidence rules** — auto-assign (>0.8), flag multi-team (gap <0.2), flag uncertain (<0.5), force-none override (<0.75)
-5. **Notify** — routes critical/high issues to team Slack channels immediately, medium/low accumulate for daily digest
-6. **Log** — appends triage results to JSONL assessment log
+**Triage pipeline** — each new issue gets one LLM call with all team descriptions, a routing table, and calibration examples. Confidence rules auto-assign high-confidence matches and flag ambiguous ones for human review.
 
-**Daily dashboard** — comprehensive synthesis and reporting (default: 9am UTC):
+**Dashboard** — API-first architecture with independently cached sections. Issues refresh every 2 hours, PR health every 4 hours, LLM synthesis daily. If GitHub goes down, the dashboard keeps serving cached data.
 
-1. **Read** — loads all triaged issues from assessment log
-2. **Synthesize** — generates team focus summaries and action items using LLM (one call per team)
-3. **Generate** — creates bird's eye view report with team breakdown, area heatmap, duplicate detection, and narrative
-4. **Enrich** — fetches PR health, vouch status, and metrics sparklines
-5. **Render** — serves live HTML dashboard via FastAPI with team synthesis, linked PR detection, and historical trends
+## Features
 
-**LLM Costs:**
-- Hourly: 1 Claude Sonnet call per new issue (typically 5-8 issues/day)
-- Daily: 6-7 Claude Sonnet calls for team synthesis + narrative (once per day)
-- Total: ~12-15 LLM calls/day for typical OpenShell volume
-
-### Teams
-
-| Team | Primary Areas |
-|------|--------------|
-| Agent Ops | CLI, SDK, Helm, OpenShift, sandbox, docs, certgen, network |
-| ACP | Gateway, auth, access-control, multi-tenancy |
-| AI Safety | Policy engine, guardrails, red teaming |
-| Kata | VM isolation, GPU passthrough, Kata containers |
-| AgentDev | Inference, providers, router, harness validation |
-| Dashboard | Admin UI (upstream API changes only) |
-
-### Confidence Rules
-
-| Confidence | Action |
-|-----------|--------|
-| Primary > 0.8, gap > 0.2 | Auto-assign to team |
-| Gap < 0.2 | Flag both teams (multi-team) |
-| Primary < 0.5 | Flag as uncertain |
-| any_team_cares but confidence < 0.75 | Override to "no team" (forced-none) |
-
-## Stack
-
-| Component | Technology |
-|-----------|-----------|
-| Language | Python 3.12 |
-| LLM | Claude Sonnet via `anthropic[vertex]` SDK |
-| LLM Providers | Vertex AI (default), Anthropic API |
-| Web Server | FastAPI + Uvicorn |
-| Tests | pytest (301 tests) |
-| Lint | ruff |
-| Container | Docker (non-root) |
-| Deploy | Kubernetes Deployment or CronJob + Kustomize |
+| Feature | Description |
+|---------|-------------|
+| **Multi-team routing** | LLM classifies issues to N teams with confidence scores, multi-team flagging, and uncertainty detection |
+| **Urgency rating** | Critical / high / medium / low with per-team override rules |
+| **Live dashboard** | KPIs, team breakdown, area heatmap, duplicate detection, trend sparklines |
+| **PR health** | Open PR count, age distribution, neglected PRs, merge velocity, review wait times |
+| **Vouch tracking** | Pending/completed contributor vouches, blocked PRs, response times |
+| **AI synthesis** | Per-team focus summaries, action items, and executive narrative — generated daily by LLM |
+| **Slack notifications** | Immediate alerts for critical/high issues, daily digest for medium/low |
+| **Profile system** | YAML-based team definitions with areas, urgency overrides, few-shot examples, and notification config |
+| **API-first** | All data available via REST API — integrate with Slack bots, CLI tools, CI pipelines, Grafana |
+| **Multi-repo** | Watch multiple GitHub repos from a single deployment |
 
 ## Quick Start
 
 ```bash
-# Clone
 git clone https://github.com/gracesmith6504/team-issue-triage.git
 cd team-issue-triage
-
-# Install
-pip install -r requirements-dev.txt
-
-# Run tests
-make test
-
-# Run locally
-export GITHUB_TOKEN="ghp_..."
-export LLM_PROVIDER="vertex"
-export VERTEX_PROJECT_ID="your-gcp-project"
-export WATCH_REPOS="NVIDIA/OpenShell"
-
-python -m app --mode triage          # Classify new issues (hourly)
-python -m app --mode digest          # Send daily digest (medium/low)
-python -m app --mode review --team agent-ops --since 48   # Review recent results
-python -m app --mode report          # Generate full report with synthesis
-python -m app --mode report --output report.html          # Write HTML report to file
-python -m app --mode serve           # Start live dashboard (FastAPI on port 8080)
-                                     # Runs hourly triage + daily report generation
-
-# Backfill all open issues (once deployed, hit the API)
-curl -X POST https://<route>/api/backfill
+pip install -r requirements.txt
 ```
 
-## Configuration
+Set environment variables and run:
 
-All configuration is via environment variables:
+```bash
+export GITHUB_TOKEN="ghp_..."
+export LLM_PROVIDER="vertex"              # or "anthropic"
+export VERTEX_PROJECT_ID="your-project"   # for Vertex AI
+export WATCH_REPOS="your-org/your-repo"
+
+# Start the dashboard (runs triage on a background schedule)
+python -m app --mode serve
+```
+
+Open `http://localhost:8080` to see the dashboard. On first run, backfill existing issues:
+
+```bash
+curl -X POST http://localhost:8080/api/backfill
+```
+
+<details>
+<summary><strong>Other run modes</strong></summary>
+
+```bash
+python -m app --mode triage                           # One-shot: classify new issues
+python -m app --mode digest                           # Send daily digest notification
+python -m app --mode review --team my-team --since 48 # Review recent triage results
+python -m app --mode report                           # Generate full report (stdout)
+python -m app --mode report --output report.html      # Generate HTML report to file
+```
+
+</details>
+
+## Configure for Your Team
+
+The agent is configured through YAML profiles — no code changes needed.
+
+**1. Create a repo profile** — copy `profiles/example.yaml`:
+
+```yaml
+# profiles/my-project.yaml
+repo: "my-org/my-repo"
+codeowners: [alice, bob]
+
+team_profiles:
+  - teams/backend.yaml
+  - teams/frontend.yaml
+
+no_team_prefixes: [build, ci, deps]
+
+confidence_thresholds:
+  auto_assign: 0.8
+  multi_team_gap: 0.2
+  uncertain: 0.5
+  none_min: 0.75
+```
+
+**2. Define each team** — copy `profiles/teams/example-team.yaml`:
+
+```yaml
+# profiles/teams/backend.yaml
+team_id: backend
+team_name: "Backend"
+description: |
+  Owns the API server, database layer, and authentication.
+  Responsible for REST endpoints, GraphQL schema, and data migrations.
+
+areas:
+  primary: [api, auth, database, migrations]
+  secondary: [gateway, middleware]
+
+urgency_overrides:
+  critical:
+    - "Data loss or corruption in production"
+  high:
+    - "Authentication bypass or token leak"
+
+examples:
+  - title: "API returns 500 on large payloads"
+    urgency: high
+    reasoning: "API stability is backend's core responsibility"
+```
+
+**3. Deploy with your profile name:**
+
+```bash
+export PROFILE_NAME="my-project"
+export WATCH_REPOS="my-org/my-repo"
+python -m app --mode serve
+```
+
+## Deploy to Kubernetes
+
+```bash
+# Build and push
+podman build -t quay.io/your-org/team-issue-triage:latest .
+podman push quay.io/your-org/team-issue-triage:latest
+
+# Create secrets
+kubectl create secret generic triage-secrets \
+  --from-literal=GITHUB_TOKEN=ghp_... \
+  --from-literal=API_TOKEN=$(openssl rand -hex 16)
+
+# Deploy
+kubectl apply -k k8s/
+```
+
+```mermaid
+flowchart TB
+    subgraph Cluster["Kubernetes"]
+        DEP["Deployment\ntriage-dashboard\n(serves UI + API)"]
+        CJ["CronJob\ntriage-hourly\n(worker mode)"]
+        PVC["PVC\n/data"]
+        CM["ConfigMap\ntriage-config"]
+        SEC["Secret\ntriage-secrets"]
+
+        DEP -->|mounts| PVC
+        CJ -->|POST /api/assessments| DEP
+        CM -.->|env| DEP
+        CM -.->|env| CJ
+        SEC -.->|env| DEP
+        SEC -.->|env| CJ
+    end
+
+    ROUTE["OpenShift Route\nhttps://..."] --> DEP
+    GH["GitHub API"] <--> DEP
+    GH <--> CJ
+    LLM["Vertex AI / Anthropic"] <--> CJ
+    LLM <--> DEP
+```
+
+The dashboard Deployment serves the UI and API on port 8080. The CronJob runs hourly in worker mode — it triages new issues and POSTs results to the dashboard API (no shared PVC mount needed).
+
+<details>
+<summary><strong>Kubernetes manifests</strong></summary>
+
+| File | Purpose |
+|------|---------|
+| `k8s/deployment.yaml` | Dashboard Deployment (FastAPI + background refresh) |
+| `k8s/service.yaml` | ClusterIP Service |
+| `k8s/route.yaml` | OpenShift Route with edge TLS |
+| `k8s/cronjob-triage.yaml` | Hourly triage CronJob (worker mode) |
+| `k8s/pvc.yaml` | Persistent volume for state and cache |
+| `k8s/configmap.yaml` | Non-secret configuration (PROFILE_NAME, WATCH_REPOS, etc.) |
+| `k8s/kustomization.yaml` | Kustomize entrypoint |
+
+</details>
+
+## API Reference
+
+All data is available via REST API. Read endpoints are unauthenticated (for the browser dashboard). Write endpoints require `Authorization: Bearer <API_TOKEN>`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/report` | Combined report (all sections assembled) |
+| `GET` | `/api/v1/report/issues` | Issues, KPIs, team routing, area heatmap |
+| `GET` | `/api/v1/report/pr-health` | PR stats, age distribution, neglected PRs |
+| `GET` | `/api/v1/report/vouch` | Vouch tracking, blocked PRs |
+| `GET` | `/api/v1/report/synthesis` | LLM narrative + per-team summaries |
+| `GET` | `/api/v1/report/metrics` | Sparkline data (7-day trends) |
+| `GET` | `/api/v1/report/meta` | Per-section freshness timestamps |
+| `POST` | `/api/backfill` | Backfill all open issues (one-time) |
+| `POST` | `/api/refresh` | Trigger full section refresh |
+| `POST` | `/api/assessments` | Submit triage results (used by worker) |
+| `POST` | `/api/reload-config` | Hot-reload team profiles from disk |
+| `GET` | `/api/health` | Health check |
+
+<details>
+<summary><strong>Example: fetch the combined report</strong></summary>
+
+```bash
+curl -s https://your-dashboard/api/v1/report | python3 -m json.tool
+```
+
+Response shape:
+```json
+{
+  "summary": {
+    "total_open": 331,
+    "new_this_period": 47,
+    "by_urgency": {"critical": 0, "high": 46, "medium": 173, "low": 112},
+    "triage_needed": 0
+  },
+  "narrative": "Our current issue landscape shows 331 total open items...",
+  "team_breakdown": { "agent-ops": { "total": 38, "...": "..." } },
+  "pr_health": { "total_open": 127, "stale_14d": 42 },
+  "sparklines": { "triage": [5, 3, 7, 2, 4, 6, 1] },
+  "_meta": { "sections": { "issues": { "generated_at": "...", "stale": false } } }
+}
+```
+
+</details>
+
+## Architecture
+
+```
+app/
+├── core/               # Pure triage logic (no I/O, no framework deps)
+│   ├── llm.py          #   LLM client (Vertex AI + Anthropic)
+│   ├── profiles.py     #   YAML profile loader and validator
+│   ├── prompt.py       #   Multi-team prompt construction
+│   ├── scoring.py      #   Confidence rules engine
+│   └── triage_engine.py#   Signal extraction + triage orchestration
+├── cache/              # Thread-safe section cache with TTL + disk persistence
+├── api/v1/             # REST API (FastAPI router + report assembler)
+├── refresh/            # Independent section refreshers (issues, PR, vouch, synthesis, metrics)
+├── sources/            # GitHub API fetchers (issues, timeline enrichment)
+├── notifications/      # Adapter protocol: Slack webhook, stdout log
+├── state/              # JSON state tracker, JSONL assessment log
+├── pr_health/          # PR age, velocity, review wait, neglected PRs
+├── vouch/              # GraphQL vouch tracker (pending, completed, blocked)
+├── metrics/            # Historical metrics snapshots + sparklines
+├── reports/            # Bird's eye view generator, duplicate detector, renderers
+└── server.py           # FastAPI app, background scheduler, all API endpoints
+```
+
+Hexagonal architecture — the core triage engine has zero I/O dependencies. Sources, notifications, and state are pluggable via protocols. Each cache section refreshes independently with its own TTL and failure isolation.
+
+## Cost and Usage
+
+Uses Claude Sonnet (`claude-sonnet-4-6`) via Vertex AI or Anthropic API. All calls use `max_tokens: 2048`, `temperature: 0`.
+
+| Call | When | Volume |
+|------|------|--------|
+| Issue triage | 1 per new issue | ~5/day (only unseen issues) |
+| Team synthesis | 1 per team | ~6/day (24h refresh) |
+| Narrative | 1 total | 1/day |
+
+**Typical total: ~12 LLM calls/day.** Backfill (one-time) adds 1 call per existing issue.
+
+GitHub API usage is mostly from PR health — fetches reviews and comments for each open PR. Stays well within the 5,000 requests/hour rate limit. Dashboard pod idles at ~50MB RAM between refreshes.
+
+## Development
+
+```bash
+make test      # Run all 332 tests
+make lint      # Check with ruff (lint + format)
+make format    # Auto-format with ruff
+make build     # Build container image
+```
+
+## Configuration Reference
+
+<details>
+<summary><strong>All environment variables</strong></summary>
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `WATCH_REPOS` | `NVIDIA/OpenShell` | Comma-separated `owner/repo` list |
-| `GITHUB_TOKEN` | *required* | GitHub personal access token |
+| `WATCH_REPOS` | — | Comma-separated `owner/repo` list |
+| `PROFILE_NAME` | `openshell` | Which profile YAML to load |
+| `GITHUB_TOKEN` | — | GitHub personal access token (required) |
 | `LLM_PROVIDER` | `vertex` | `vertex` or `anthropic` |
 | `LLM_MODEL` | auto | Model name (defaults per provider) |
 | `VERTEX_PROJECT_ID` | — | GCP project ID (required for Vertex) |
 | `VERTEX_REGION` | `us-east5` | GCP region |
 | `ANTHROPIC_API_KEY` | — | API key (required for Anthropic provider) |
-| `STATE_PATH` | `/data/state.json` | Where to persist seen-issue state |
-| `ASSESSMENT_LOG_PATH` | `/data/assessments.jsonl` | JSONL assessment log for reports |
-| `PROFILES_DIR` | `profiles` | Directory containing team YAML profiles |
+| `API_TOKEN` | — | Bearer token for write API endpoints |
+| `STATE_PATH` | `/data/state.json` | Seen-issue state persistence |
+| `ASSESSMENT_LOG_PATH` | `/data/assessments.jsonl` | JSONL assessment log |
+| `PROFILES_DIR` | `profiles` | Directory containing profile YAMLs |
 | `DEFAULT_LOOKBACK_HOURS` | `24` | How far back to scan for new issues |
-| `REPORT_OUTPUT_PATH` | — | File path for report output (omit for stdout) |
-| `METRICS_PATH` | `/data/metrics.jsonl` | JSONL file for historical metrics snapshots |
+| `METRICS_PATH` | `/data/metrics.jsonl` | Historical metrics snapshots |
 | `PR_HEALTH_ENABLED` | `true` | Enable PR health tracking |
 | `VOUCH_TRACKING_ENABLED` | `true` | Enable vouch status monitoring |
-| `REPORT_SCHEDULE_HOUR` | `9` | Hour (UTC) to generate daily dashboard report |
-| `SLACK_WEBHOOK_AGENT_OPS` | — | Per-team Slack webhooks referenced from team YAMLs |
+| `REPORT_SCHEDULE_HOUR` | `9` | Hour (UTC) for daily synthesis |
+| `SLACK_WEBHOOK_*` | — | Per-team Slack webhooks (referenced from team YAMLs) |
 
-## Team Profiles
-
-Profiles define what each team cares about. The repo config (`profiles/openshell.yaml`) references 6 team YAMLs in `profiles/teams/`:
-
-```yaml
-# profiles/teams/agent-ops.yaml
-team_id: agent-ops
-team_name: "Agent Ops"
-description: |
-  Core OpenShell integration on Red Hat OpenShift AI. Owns Helm deployment,
-  SCCs, RBAC, Routes, Go SDK sync, sandbox operator design, and midstream
-  pipeline.
-areas:
-  primary:
-    - cli
-    - sdk
-    - helm
-    - openshift
-    - sandbox
-  secondary:
-    - gateway
-    - supervisor
-urgency_overrides:
-  critical:
-    - "Go SDK protobuf sync failures"
-  high:
-    - "Regressions in Helm/SCC/RBAC deployment"
-notifications:
-  receive_secondary: true
-  secondary_min_urgency: high
-  channels:
-    - adapter: slack_webhook
-      config:
-        webhook_url: "${SLACK_WEBHOOK_AGENT_OPS}"
-      immediate_on: [critical, high]
-    - adapter: log
-      config:
-        level: info
-      immediate_on: [critical, high, medium, low]
-```
-
-The repo config also defines `no_team_prefixes` (build, ci, tui, rfc, etc.) for issues no Red Hat team owns, `confidence_thresholds`, and `none_examples` for calibration.
-
-## Dashboard
-
-The live dashboard at `https://<route>/` includes:
-
-1. **KPIs** — Issues needing triage, pending vouches, stale PRs, merge velocity
-2. **Team routing** — Issues classified across 6 teams, grouped by area, with urgency dots, maintainer badges, linked PR icons, and comment counts
-3. **Team synthesis** — AI-generated focus summaries and action items per team (collapsible, with issue cross-references)
-4. **PR Health** — Age distribution chart, neglected PRs table (no human review/comment for N+ days), stale PR count, awaiting review count
-5. **Contributor Health** — Pending vouches, completed vouches (with timestamps), longest wait, blocked PRs
-6. **Dynamic summary** — Auto-generated bug/feature breakdown with area highlights
-7. **Historical trends** — Sparklines showing urgency, review backlog, and velocity over last 7 days
-
-**Client-side features:**
-- **Time filters** — 24h, 7d, 30d, All — all sections update dynamically (KPIs, team routing, PR health, contributor health)
-- **Type filters** — Any, Bugs, Features — bugs detected by title prefix, features by `Feature`/`feature request` labels
-- **Responsive layout** — works on mobile (480px) through large monitors (1800px+)
-- **Dynamic thresholds** — neglected PR threshold adapts to filter (3 days at 7d, 7 days at 30d/All)
-
-Dashboard regenerates daily at 9am UTC (configurable via `REPORT_SCHEDULE_HOUR`).
-
-## Bird's Eye View Report
-
-Cross-team report generated from the JSONL assessment log:
-
-```
-OpenShell Triage — Bird's Eye View
-Period: Jul 28 – Aug 03, 2026
-
-SUMMARY
-  12 new issues
-  2 critical | 7 high | 41 medium | 248 low
-
-  "Gateway saw unusual activity this week with 8 new issues..."
-  — generated by Sonnet from the report data
-
-CRITICAL & HIGH ISSUES
-  #     | Issue                                        | Team      | Days Open
-  2571  | bug(supervisor): SPIFFE sandboxes crash       | ai-safety | 4
-
-TEAM BREAKDOWN
-  Team          | Total | Crit | High | Med | Low | Trend
-  agent-ops     | 38    | 0    | 3    | 15  | 20  | flat
-  acp           | 14    | 1    | 2    | 8   | 3   | +4
-
-AREA HEATMAP
-  gateway   | 10 this week (was 2) — +8
-
-POTENTIAL DUPLICATES
-  Cluster 1 — sandbox (shared: namespace)
-    #2554 add user namespace support — agent-ops
-    #2520 enableUserNamespaces fails — agent-ops
-```
-
-## Kubernetes Deployment
-
-Two deployment modes — choose one:
-
-**Dashboard mode** (recommended) — a single Deployment serves the live dashboard and runs triage on a background schedule:
-
-```bash
-podman build -t quay.io/your-org/team-issue-triage:latest .
-podman push quay.io/your-org/team-issue-triage:latest
-kubectl apply -k k8s/
-```
-
-**Batch mode** — CronJobs for hourly triage and daily digest (no web UI). Edit `k8s/kustomization.yaml` to swap which resources are active.
-
-Manifests in `k8s/`:
-- `deployment.yaml` — live dashboard Deployment (dashboard mode)
-- `service.yaml` — ClusterIP Service for the dashboard
-- `route.yaml` — OpenShift Route with edge TLS
-- `cronjob-triage.yaml` — hourly triage CronJob (batch mode)
-- `cronjob-digest.yaml` — daily digest CronJob (batch mode)
-- `pvc.yaml` — persistent volume for state and assessment log
-- `configmap.yaml` — non-secret configuration
-- `kustomization.yaml` — ties it all together
-
-Secrets (`GITHUB_TOKEN`, `SLACK_WEBHOOK_*`, API keys) should be provided via a Kubernetes Secret not checked into the repo.
-
-## Project Structure
-
-```
-team-issue-triage/
-├── app/
-│   ├── __main__.py          # CLI entry point (--mode triage|digest|review|report|serve)
-│   ├── config.py            # Env var config loader
-│   ├── server.py            # FastAPI web server with background triage scheduler
-│   ├── triage.py            # Orchestrators: run_triage(), run_digest(), run_review(), run_report()
-│   ├── core/
-│   │   ├── models.py        # TriageResult, Urgency, IssueData, IssueSignals
-│   │   ├── llm.py           # LLM client (Vertex AI, Anthropic) with protocol
-│   │   ├── profiles.py      # RepoConfig, TeamProfile, YAML loader with validation
-│   │   ├── prompt.py        # Multi-team system/user prompt construction
-│   │   ├── scoring.py       # Confidence rules (auto, multi_team, uncertain, forced_none)
-│   │   ├── triage_engine.py # Signal extraction, issue triage orchestration
-│   │   └── truncation.py    # Body/comment truncation for context limits
-│   ├── sources/
-│   │   ├── source.py        # IssueSource protocol
-│   │   ├── github.py        # GitHub API issue fetcher
-│   │   └── enrichment.py    # Post-triage enrichment (linked PR detection via Timeline API)
-│   ├── notifications/
-│   │   ├── adapter.py       # NotificationAdapter protocol, config dataclasses
-│   │   ├── router.py        # NotificationRouter (immediate + digest routing)
-│   │   ├── log.py           # Stdout logging adapter
-│   │   └── slack_webhook.py # Slack webhook adapter (Block Kit)
-│   ├── state/
-│   │   ├── tracker.py       # JSON state persistence (atomic writes, namespaced keys)
-│   │   └── assessment_log.py # JSONL append-only log with period queries
-│   ├── metrics/
-│   │   ├── models.py        # MetricsSnapshot dataclass
-│   │   ├── store.py         # MetricsStore protocol + JsonlMetricsStore
-│   │   └── compute.py       # compute_snapshot(), build_sparklines() pure functions
-│   ├── pr_health/
-│   │   ├── models.py        # PRStatus, PRHealthFindings, author/review tracking
-│   │   └── fetcher.py       # GitHub PR health fetcher (age, neglected PRs, velocity, participants)
-│   ├── vouch/
-│   │   ├── models.py        # VouchFindings, PendingVouch, CompletedVouch dataclasses
-│   │   └── fetcher.py       # GitHub Discussions vouch tracker (GraphQL, vouch timestamps)
-│   └── reports/
-│       ├── models.py        # BirdsEyeReport, ReportSummary, TeamSummary, AreaTrend
-│       ├── birds_eye.py     # Report generator (computes all sections + LLM narrative)
-│       ├── duplicates.py    # Duplicate detector (prefix grouping + token overlap)
-│       └── renderers/
-│           ├── html.py      # HTML dashboard renderer (area labels, comment counts, dedup)
-│           ├── markdown.py  # Markdown renderer for bird's eye report
-│           └── templates/   # Jinja2 base template + JS components (12 modules)
-├── profiles/
-│   ├── openshell.yaml       # Repo config (references teams, thresholds, none_examples)
-│   └── teams/               # 6 team profile YAMLs
-├── k8s/                     # Kubernetes manifests
-├── tests/                   # 301 tests (unit + integration)
-├── Dockerfile               # Non-root container (UID 1001)
-├── Makefile                 # test, lint, format, build
-├── requirements.txt
-└── requirements-dev.txt
-```
-
-## Architecture
-
-Hexagonal architecture — pure core logic with pluggable adapters:
-
-- **Core** (`app/core/`) — triage engine, prompt construction, confidence rules, profiles. No I/O, no framework dependencies. Fully unit-testable.
-- **Sources** (`app/sources/`) — issue fetchers. Currently GitHub; protocol-based for extensibility.
-- **Notifications** (`app/notifications/`) — adapter protocol with router. Log (stdout) and Slack (webhook). Per-team channel config from YAML.
-- **State** (`app/state/`) — JSON tracker with atomic writes via `os.replace`, JSONL assessment log with period-based queries.
-- **Metrics** (`app/metrics/`) — historical metrics with `MetricsStore` protocol. JSONL v1 backend, pluggable for future Org Pulse integration.
-- **PR Health** (`app/pr_health/`) — GitHub REST API fetcher for PR age distribution, stuck PRs, merge velocity, review wait times.
-- **Vouch** (`app/vouch/`) — GitHub GraphQL fetcher for vouch discussion tracking, response times, pending contributor counts.
-- **Reports** (`app/reports/`) — bird's eye view generator, duplicate detector, HTML dashboard and markdown renderers.
-- **Server** (`app/server.py`) — FastAPI web server with background scheduler. Runs triage hourly, enriches issues with linked PR detection, caches and serves the HTML dashboard. Includes `POST /api/backfill` for one-time full-issue ingestion and `POST /api/refresh` for manual report regeneration.
-
-## Development
-
-```bash
-make test      # Run all 301 tests
-make lint      # Check with ruff
-make format    # Auto-format with ruff
-make build     # Build Docker image
-```
+</details>

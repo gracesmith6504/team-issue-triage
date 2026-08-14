@@ -6,10 +6,7 @@ namespace: team-issue-triage
 resources:
   - pvc.yaml
   - configmap.yaml
-  # Batch mode (CronJobs) — comment out when using dashboard mode
-  # - cronjob-triage.yaml
-  # - cronjob-digest.yaml
-  # Dashboard mode (Deployment) — comment out when using batch mode
   - deployment.yaml
   - service.yaml
   - route.yaml
+  - cronjob-triage.yaml

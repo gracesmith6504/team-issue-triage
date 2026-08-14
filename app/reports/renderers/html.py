@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import asdict
 from datetime import datetime, timezone
 from enum import Enum
@@ -64,8 +63,11 @@ def _report_to_dict(
         seen_issue_numbers.add(issue_num)
 
         area_label = next(
-            (lbl.split(":", 1)[1] for lbl in issue.get("labels", [])
-             if lbl.startswith("area:")),
+            (
+                lbl.split(":", 1)[1]
+                for lbl in issue.get("labels", [])
+                if lbl.startswith("area:")
+            ),
             None,
         )
         issue["area"] = area_label or _get_area(

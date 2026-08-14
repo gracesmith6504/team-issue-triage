@@ -67,7 +67,9 @@ def run_triage(config: TriageConfig) -> None:
     tracker = StateTracker(config.state_path, config.default_lookback_hours)
     state = tracker.load()
 
-    repo_config = load_repo_config(config.profile_name, profiles_dir=config.profiles_dir)
+    repo_config = load_repo_config(
+        config.profile_name, profiles_dir=config.profiles_dir
+    )
     system_prompt = build_system_prompt(repo_config)
     router = _build_notification_router(repo_config)
 
@@ -127,7 +129,9 @@ def run_refresh(config: TriageConfig) -> None:
     }
 
     # Load repo config and LLM client
-    repo_config = load_repo_config(config.profile_name, profiles_dir=config.profiles_dir)
+    repo_config = load_repo_config(
+        config.profile_name, profiles_dir=config.profiles_dir
+    )
     llm_client = build_llm_client(config)
     model = resolve_model(config.llm_provider, config.llm_model)
     system_prompt = build_system_prompt(repo_config)
@@ -284,7 +288,9 @@ def run_digest(config: TriageConfig) -> None:
     if medium_low:
         results = [record_to_result(r) for r in medium_low]
 
-        repo_config = load_repo_config(config.profile_name, profiles_dir=config.profiles_dir)
+        repo_config = load_repo_config(
+            config.profile_name, profiles_dir=config.profiles_dir
+        )
         router = _build_notification_router(repo_config)
         router.send_digest(results)
 
@@ -311,7 +317,9 @@ def run_report(
     from app.reports.enrich import enrich_report
     from app.reports.periods import compute_period
 
-    repo_config = load_repo_config(config.profile_name, profiles_dir=config.profiles_dir)
+    repo_config = load_repo_config(
+        config.profile_name, profiles_dir=config.profiles_dir
+    )
 
     now = datetime.now(timezone.utc)
     current_start, previous_start, period_label = compute_period(

@@ -12,7 +12,9 @@ def refresh_vouch(config: TriageConfig, cache: SectionCache) -> None:
     from app.core.profiles import load_repo_config
     from app.vouch.fetcher import fetch_vouch_status
 
-    repo_config = load_repo_config(config.profile_name, profiles_dir=config.profiles_dir)
+    repo_config = load_repo_config(
+        config.profile_name, profiles_dir=config.profiles_dir
+    )
     findings = fetch_vouch_status(repo_config.repo, config.github_token)
     data = dataclasses.asdict(findings)
 
@@ -35,15 +37,17 @@ def _compute_blocked_prs(vouch_data: dict, cache: SectionCache) -> list[dict]:
     for pr in pr_entry.data.get("all_open_pr_summaries", []):
         vouch = pending_by_author.get(pr["author"])
         if vouch:
-            blocked.append({
-                "pr_number": pr["number"],
-                "pr_title": pr["title"],
-                "pr_url": pr["url"],
-                "author": pr["author"],
-                "vouch_discussion": vouch["discussion_number"],
-                "vouch_url": vouch["url"],
-                "vouch_wait_days": vouch["wait_days"],
-            })
+            blocked.append(
+                {
+                    "pr_number": pr["number"],
+                    "pr_title": pr["title"],
+                    "pr_url": pr["url"],
+                    "author": pr["author"],
+                    "vouch_discussion": vouch["discussion_number"],
+                    "vouch_url": vouch["url"],
+                    "vouch_wait_days": vouch["wait_days"],
+                }
+            )
     return blocked
 
 

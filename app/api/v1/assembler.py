@@ -39,7 +39,12 @@ def assemble_report(cache: SectionCache, config: TriageConfig) -> dict:
     result["sparklines"] = (
         copy.deepcopy(metrics.data)
         if metrics
-        else {"triage": [0] * 7, "prs": [0] * 7, "blocked": [0] * 7, "velocity": [0] * 7}
+        else {
+            "triage": [0] * 7,
+            "prs": [0] * 7,
+            "blocked": [0] * 7,
+            "velocity": [0] * 7,
+        }
     )
 
     result.setdefault("generated_at", datetime.now(timezone.utc).isoformat())

@@ -1,8 +1,6 @@
 import time
-from pathlib import Path
 
 from app.cache.section_cache import SectionCache
-from app.cache.sections import Section
 
 
 def test_get_empty():

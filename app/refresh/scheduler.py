@@ -31,6 +31,7 @@ class SectionRefresher:
         def run():
             try:
                 from app.refresh.issues import refresh_issues
+
                 refresh_issues(self._config, self._cache)
                 if run_synthesis_after:
                     self._run_synthesis_once()
@@ -45,10 +46,13 @@ class SectionRefresher:
         def run():
             try:
                 from app.refresh.pr_health import refresh_pr_health
+
                 refresh_pr_health(self._config, self._cache)
             except Exception:
                 logger.exception("PR health refresh failed")
-            self._schedule("pr_health", self._refresh_pr_health, SECTION_TTLS[Section.PR_HEALTH])
+            self._schedule(
+                "pr_health", self._refresh_pr_health, SECTION_TTLS[Section.PR_HEALTH]
+            )
 
         thread = threading.Thread(target=run, daemon=True)
         thread.start()
@@ -57,6 +61,7 @@ class SectionRefresher:
         def run():
             try:
                 from app.refresh.vouch import refresh_vouch
+
                 refresh_vouch(self._config, self._cache)
             except Exception:
                 logger.exception("Vouch refresh failed")
@@ -68,6 +73,7 @@ class SectionRefresher:
     def _run_synthesis_once(self) -> None:
         try:
             from app.refresh.synthesis import refresh_synthesis
+
             refresh_synthesis(self._config, self._cache)
         except Exception:
             logger.exception("Synthesis refresh failed")
@@ -84,10 +90,13 @@ class SectionRefresher:
         def run():
             try:
                 from app.refresh.metrics import refresh_metrics
+
                 refresh_metrics(self._config, self._cache)
             except Exception:
                 logger.exception("Metrics refresh failed")
-            self._schedule("metrics", self._refresh_metrics, SECTION_TTLS[Section.METRICS])
+            self._schedule(
+                "metrics", self._refresh_metrics, SECTION_TTLS[Section.METRICS]
+            )
 
         thread = threading.Thread(target=run, daemon=True)
         thread.start()
@@ -111,7 +120,8 @@ class SectionRefresher:
         delay = (target - now).total_seconds()
         logger.info(
             "Scheduling synthesis refresh at %s (in %.1f hours)",
-            target.isoformat(), delay / 3600,
+            target.isoformat(),
+            delay / 3600,
         )
         self._schedule("synthesis", self._refresh_synthesis, int(delay))
 
@@ -131,6 +141,7 @@ class SectionRefresher:
     def _do_refresh_issues(self) -> None:
         try:
             from app.refresh.issues import refresh_issues
+
             refresh_issues(self._config, self._cache)
         except Exception:
             logger.exception("Issues refresh failed (manual)")
@@ -138,6 +149,7 @@ class SectionRefresher:
     def _do_refresh_pr_health(self) -> None:
         try:
             from app.refresh.pr_health import refresh_pr_health
+
             refresh_pr_health(self._config, self._cache)
         except Exception:
             logger.exception("PR health refresh failed (manual)")
@@ -145,6 +157,7 @@ class SectionRefresher:
     def _do_refresh_vouch(self) -> None:
         try:
             from app.refresh.vouch import refresh_vouch
+
             refresh_vouch(self._config, self._cache)
         except Exception:
             logger.exception("Vouch refresh failed (manual)")
@@ -152,6 +165,7 @@ class SectionRefresher:
     def _do_refresh_metrics(self) -> None:
         try:
             from app.refresh.metrics import refresh_metrics
+
             refresh_metrics(self._config, self._cache)
         except Exception:
             logger.exception("Metrics refresh failed (manual)")

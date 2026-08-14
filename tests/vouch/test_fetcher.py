@@ -203,14 +203,18 @@ def test_responded_in_7d_counts_closed_vouched_discussions(mock_post, mock_dt):
             author="recentuser",
             created_days_ago=5,
             closed=True,
-            comments=[_make_comment("/vouch", "MEMBER", created_at="2026-07-30T12:00:00Z")],
+            comments=[
+                _make_comment("/vouch", "MEMBER", created_at="2026-07-30T12:00:00Z")
+            ],
         ),
         _make_discussion(
             2,
             author="olduser",
             created_days_ago=20,
             closed=True,
-            comments=[_make_comment("/vouch", "MEMBER", created_at="2026-07-10T12:00:00Z")],
+            comments=[
+                _make_comment("/vouch", "MEMBER", created_at="2026-07-10T12:00:00Z")
+            ],
         ),
         _make_discussion(3, author="waitinguser", created_days_ago=3),
     ]

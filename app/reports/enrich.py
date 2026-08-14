@@ -71,8 +71,7 @@ def _enrich_issue_counts(report, config, repo_config):
     issue_meta = _fetch_issue_metadata(repo, token)
     report.summary.total_open = len(issue_meta)
     report.summary.triage_needed = sum(
-        1 for m in issue_meta.values()
-        if "state:triage-needed" in m["labels"]
+        1 for m in issue_meta.values() if "state:triage-needed" in m["labels"]
     )
 
     for issue in report.all_issues:

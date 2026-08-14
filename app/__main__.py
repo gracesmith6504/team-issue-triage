@@ -18,9 +18,15 @@ def main():
     parser.add_argument(
         "--mode",
         choices=[
-            "triage", "digest", "review", "report", "serve",
-            "refresh", "check-closed",
-            "worker-triage", "worker-report",
+            "triage",
+            "digest",
+            "review",
+            "report",
+            "serve",
+            "refresh",
+            "check-closed",
+            "worker-triage",
+            "worker-report",
         ],
         default="triage",
     )

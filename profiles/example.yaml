@@ -2,7 +2,11 @@
 #
 # 1. Copy this file:  cp example.yaml myrepo.yaml
 # 2. Create team files: mkdir -p teams/ and add one YAML per team
-# 3. Set PROFILE_NAME=myrepo when deploying
+# 3. Set both env vars when deploying:
+#      PROFILE_NAME=myrepo
+#      WATCH_REPOS=org/repo-name
+#    WATCH_REPOS must match the repo field below, otherwise triage will
+#    scan the wrong repository.
 #
 # On Kubernetes, you can put these in a ConfigMap and mount to /config/profiles/
 # then set PROFILES_DIR=/config/profiles in your env.

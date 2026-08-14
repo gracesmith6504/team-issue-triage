@@ -33,8 +33,8 @@ class SectionCache:
         entry = CachedSection(data=data, generated_at=now, ttl_seconds=ttl_seconds)
         with self._lock:
             self._store[section] = entry
-        if self._persist_dir:
-            self._persist(section, entry)
+            if self._persist_dir:
+                self._persist(section, entry)
 
     def is_stale(self, section: str) -> bool:
         entry = self.get(section)
@@ -45,6 +45,9 @@ class SectionCache:
     def invalidate(self, section: str) -> None:
         with self._lock:
             self._store.pop(section, None)
+            if self._persist_dir:
+                path = self._persist_dir / f"{section}.json"
+                path.unlink(missing_ok=True)
 
     def all_meta(self) -> dict[str, dict]:
         with self._lock:

@@ -218,3 +218,16 @@ def test_reload_config_requires_auth(tmp_path):
 def test_profile_name_in_config(tmp_path):
     config = _make_config(tmp_path)
     assert config.profile_name == "openshell"
+
+
+def test_combined_report_excludes_disabled_pr_health(tmp_path):
+    config = _make_config(tmp_path)
+    config.pr_health_enabled = False
+    from app.server import create_app
+
+    app = create_app(config)
+    _populate_cache(app.state.section_cache)
+    client = TestClient(app)
+    resp = client.get("/api/v1/report")
+    assert resp.status_code == 200
+    assert resp.json()["pr_health"] is None

@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from app.cache.section_cache import SectionCache
@@ -19,13 +19,15 @@ def _section_response(cache: SectionCache, section: str) -> JSONResponse:
             {"error": f"Section '{section}' not yet computed", "section": section},
             status_code=503,
         )
-    return JSONResponse({
-        "section": section,
-        "generated_at": entry.generated_at,
-        "ttl_seconds": entry.ttl_seconds,
-        "stale": cache.is_stale(section),
-        "data": entry.data,
-    })
+    return JSONResponse(
+        {
+            "section": section,
+            "generated_at": entry.generated_at,
+            "ttl_seconds": entry.ttl_seconds,
+            "stale": cache.is_stale(section),
+            "data": entry.data,
+        }
+    )
 
 
 def create_v1_router(cache: SectionCache, config: TriageConfig) -> APIRouter:

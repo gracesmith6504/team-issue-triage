@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 _REFRESH_COOLDOWN_SECONDS = 300
 
 
-
 def _check_auth(config: TriageConfig, authorization: str | None) -> JSONResponse | None:
     if not config.api_token:
         return None
@@ -34,6 +33,7 @@ def create_app(config: TriageConfig) -> FastAPI:
     async def lifespan(app):
         if not config.worker_mode:
             from app.refresh.scheduler import SectionRefresher
+
             refresher = SectionRefresher(config, app.state.section_cache)
             app.state.refresher = refresher
             refresher.start_all()
@@ -46,7 +46,11 @@ def create_app(config: TriageConfig) -> FastAPI:
         lifespan=lifespan,
     )
 
-    cache_dir = config.state_path.parent / "cache" / config.profile_name if config.state_path else None
+    cache_dir = (
+        config.state_path.parent / "cache" / config.profile_name
+        if config.state_path
+        else None
+    )
     section_cache = SectionCache(persist_dir=cache_dir)
     section_cache.load_persisted()
 
@@ -102,11 +106,11 @@ def create_app(config: TriageConfig) -> FastAPI:
                 {"error": "Another cycle is already running"}, status_code=409
             )
         app.state.cycle_lock.release()
-        thread = threading.Thread(
-            target=_run_backfill, args=(app,), daemon=True
-        )
+        thread = threading.Thread(target=_run_backfill, args=(app,), daemon=True)
         thread.start()
-        return JSONResponse({"status": "accepted", "message": "Backfill started"}, status_code=202)
+        return JSONResponse(
+            {"status": "accepted", "message": "Backfill started"}, status_code=202
+        )
 
     @app.get("/api/state")
     async def get_state(authorization: str | None = Header(None)):
@@ -180,9 +184,7 @@ def create_app(config: TriageConfig) -> FastAPI:
 
         tracker.save(state)
 
-        app.state.issue_count = len(
-            read_results_as_triage(config.assessment_log_path)
-        )
+        app.state.issue_count = len(read_results_as_triage(config.assessment_log_path))
         app.state.last_triage = datetime.now(timezone.utc).isoformat()
 
         if saved > 0:
@@ -257,9 +259,15 @@ def _run_backfill(app: FastAPI) -> None:
         source = GitHubSource(config.github_token)
         all_issues = source.fetch_all_open_issues(config.watch_repos)
         new_issues = [i for i in all_issues if i.number not in seen_numbers]
-        logger.info("Backfill: %d open issues fetched, %d new to triage", len(all_issues), len(new_issues))
+        logger.info(
+            "Backfill: %d open issues fetched, %d new to triage",
+            len(all_issues),
+            len(new_issues),
+        )
 
-        repo_config = load_repo_config(config.profile_name, profiles_dir=config.profiles_dir)
+        repo_config = load_repo_config(
+            config.profile_name, profiles_dir=config.profiles_dir
+        )
         system_prompt = build_system_prompt(repo_config)
         llm_client = build_llm_client(config)
         model = resolve_model(config.llm_provider, config.llm_model)
@@ -267,12 +275,16 @@ def _run_backfill(app: FastAPI) -> None:
         triaged = 0
         for issue in new_issues:
             try:
-                result = triage_issue(issue, llm_client, model, repo_config, system_prompt)
+                result = triage_issue(
+                    issue, llm_client, model, repo_config, system_prompt
+                )
                 if result:
                     append_result(config.assessment_log_path, result)
                     triaged += 1
                     if triaged % 10 == 0:
-                        logger.info("Backfill progress: %d/%d triaged", triaged, len(new_issues))
+                        logger.info(
+                            "Backfill progress: %d/%d triaged", triaged, len(new_issues)
+                        )
             except Exception:
                 logger.exception("Backfill: failed to triage issue #%d", issue.number)
 

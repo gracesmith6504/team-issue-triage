@@ -26,7 +26,6 @@ def fetch_pr_health(
 ) -> PRHealthFindings:
     if codeowners is None:
         codeowners = []
-    codeowners_set = set(codeowners)
     headers = {
         "Authorization": f"token {token}",
         "Accept": "application/vnd.github.v3+json",
@@ -50,14 +49,15 @@ def fetch_pr_health(
     age_distribution = _compute_age_distribution(open_prs, now)
 
     all_open_pr_summaries = _build_enriched_summaries(
-        repo, open_prs, headers, now,
+        repo,
+        open_prs,
+        headers,
+        now,
     )
 
     avg_review_wait = 0.0
 
-    velocity, velocity_prev, merged_dates = _compute_merge_velocity(
-        repo, headers, now
-    )
+    velocity, velocity_prev, merged_dates = _compute_merge_velocity(repo, headers, now)
 
     return PRHealthFindings(
         total_open=total_open,
@@ -165,10 +165,12 @@ def _build_enriched_summaries(
         if not is_draft:
             try:
                 reviews = _gh_get_all(
-                    f"{GITHUB_API}/repos/{repo}/pulls/{num}/reviews", headers,
+                    f"{GITHUB_API}/repos/{repo}/pulls/{num}/reviews",
+                    headers,
                 )
                 comments = _gh_get_all(
-                    f"{GITHUB_API}/repos/{repo}/issues/{num}/comments", headers,
+                    f"{GITHUB_API}/repos/{repo}/issues/{num}/comments",
+                    headers,
                 )
             except Exception:
                 logger.exception("Failed to enrich PR #%d", num)
@@ -201,26 +203,27 @@ def _build_enriched_summaries(
 
             participants = sorted(engaged)
 
-        summaries.append(OpenPRSummary(
-            number=num,
-            title=pr.get("title", ""),
-            url=pr.get("html_url", ""),
-            author=author,
-            created_at=pr["created_at"],
-            updated_at=pr["updated_at"],
-            has_requested_reviewers=bool(pr.get("requested_reviewers")),
-            is_draft=is_draft,
-            has_gator_label=any(
-                lbl["name"].startswith("gator:")
-                for lbl in pr.get("labels", [])
-            ),
-            author_association=author_association,
-            review_count=review_count,
-            last_review_at=last_review_at,
-            last_human_comment_at=last_human_comment_at,
-            last_author_comment_at=last_author_comment_at,
-            participants=participants,
-        ))
+        summaries.append(
+            OpenPRSummary(
+                number=num,
+                title=pr.get("title", ""),
+                url=pr.get("html_url", ""),
+                author=author,
+                created_at=pr["created_at"],
+                updated_at=pr["updated_at"],
+                has_requested_reviewers=bool(pr.get("requested_reviewers")),
+                is_draft=is_draft,
+                has_gator_label=any(
+                    lbl["name"].startswith("gator:") for lbl in pr.get("labels", [])
+                ),
+                author_association=author_association,
+                review_count=review_count,
+                last_review_at=last_review_at,
+                last_human_comment_at=last_human_comment_at,
+                last_author_comment_at=last_author_comment_at,
+                participants=participants,
+            )
+        )
 
     logger.info("Enriched %d/%d PRs (skipped drafts)", len(summaries), len(all_prs))
     return summaries

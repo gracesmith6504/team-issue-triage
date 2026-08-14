@@ -2,7 +2,6 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app.cache.section_cache import SectionCache
 from app.cache.sections import SECTION_TTLS, Section
 from app.config import TriageConfig
 
@@ -81,7 +80,12 @@ def _populate_cache(cache):
     )
     cache.set(
         Section.METRICS,
-        {"triage": [1, 2, 3, 4, 5, 6, 7], "prs": [0] * 7, "blocked": [0] * 7, "velocity": [0] * 7},
+        {
+            "triage": [1, 2, 3, 4, 5, 6, 7],
+            "prs": [0] * 7,
+            "blocked": [0] * 7,
+            "velocity": [0] * 7,
+        },
         SECTION_TTLS[Section.METRICS],
     )
     return cache

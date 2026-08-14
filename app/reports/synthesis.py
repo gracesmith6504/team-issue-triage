@@ -79,17 +79,21 @@ def _apply_response(synthesis: TeamSynthesis, response: dict) -> None:
         valid_claims = []
         for claim in claims:
             if isinstance(claim, dict) and "text" in claim:
-                valid_claims.append({
-                    "text": claim["text"],
-                    "refs": claim.get("refs", {}),
-                })
+                valid_claims.append(
+                    {
+                        "text": claim["text"],
+                        "refs": claim.get("refs", {}),
+                    }
+                )
         synthesis.claims = valid_claims
 
         # Generate fallback focus_summary by stripping markers
         plain_parts = []
         for claim in valid_claims:
             text = claim["text"]
-            text = re.sub(r"\{ref:([^}]+)\}", lambda m: _ref_label(claim, m.group(1)), text)
+            text = re.sub(
+                r"\{ref:([^}]+)\}", lambda m: _ref_label(claim, m.group(1)), text
+            )
             text = re.sub(r"\{area:([^}]+)\}", r"\1", text)
             plain_parts.append(text)
         synthesis.focus_summary = " ".join(plain_parts)
@@ -100,13 +104,17 @@ def _apply_response(synthesis: TeamSynthesis, response: dict) -> None:
         valid_actions = []
         for action in actions[:3]:
             if isinstance(action, dict) and "text" in action:
-                valid_actions.append({
-                    "text": action["text"],
-                    "issues": action.get("issues", []),
-                    "priority": action.get("priority", "medium"),
-                })
+                valid_actions.append(
+                    {
+                        "text": action["text"],
+                        "issues": action.get("issues", []),
+                        "priority": action.get("priority", "medium"),
+                    }
+                )
             elif isinstance(action, str):
-                valid_actions.append({"text": action, "issues": [], "priority": "medium"})
+                valid_actions.append(
+                    {"text": action, "issues": [], "priority": "medium"}
+                )
         synthesis.structured_actions = valid_actions
         synthesis.actions = [a["text"] for a in valid_actions]
     elif "actions" in response:
@@ -143,15 +151,28 @@ def _build_team_prompt(synthesis: TeamSynthesis, delta: dict) -> str:
     if new_issues or resolved_issues:
         lines.append("CHANGES SINCE LAST PERIOD:")
         if new_issues:
-            items = [f"#{i['number']} [{i['urgency']}] {i['title']}" for i in new_issues[:10]]
-            suffix = f" (and {len(new_issues) - 10} more)" if len(new_issues) > 10 else ""
+            items = [
+                f"#{i['number']} [{i['urgency']}] {i['title']}" for i in new_issues[:10]
+            ]
+            suffix = (
+                f" (and {len(new_issues) - 10} more)" if len(new_issues) > 10 else ""
+            )
             lines.append(f"- {len(new_issues)} new issues: {', '.join(items)}{suffix}")
         else:
             lines.append("- No new issues")
         if resolved_issues:
-            items = [f"#{i['number']} [{i['urgency']}] {i['title']}" for i in resolved_issues[:5]]
-            suffix = f" (and {len(resolved_issues) - 5} more)" if len(resolved_issues) > 5 else ""
-            lines.append(f"- {len(resolved_issues)} resolved: {', '.join(items)}{suffix}")
+            items = [
+                f"#{i['number']} [{i['urgency']}] {i['title']}"
+                for i in resolved_issues[:5]
+            ]
+            suffix = (
+                f" (and {len(resolved_issues) - 5} more)"
+                if len(resolved_issues) > 5
+                else ""
+            )
+            lines.append(
+                f"- {len(resolved_issues)} resolved: {', '.join(items)}{suffix}"
+            )
         lines.append("- Incorporate these changes into your analysis.")
         lines.append("")
 

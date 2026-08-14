@@ -28,10 +28,32 @@ _URGENCY_SORT = {
 # Area inference keywords for issues without conventional commit prefixes
 _AREA_KEYWORDS = {
     "sandbox": ["sandbox", "container", "workload", "sandbox create", "sandbox exec"],
-    "cli": ["cli", "command line", "openshell sandbox", "openshell gateway", "openshell provider"],
-    "gateway": ["gateway", "authentication", "oidc", "mtls", "tls", "auth", "certificate"],
+    "cli": [
+        "cli",
+        "command line",
+        "openshell sandbox",
+        "openshell gateway",
+        "openshell provider",
+    ],
+    "gateway": [
+        "gateway",
+        "authentication",
+        "oidc",
+        "mtls",
+        "tls",
+        "auth",
+        "certificate",
+    ],
     "gateway-interceptors": ["interceptor", "middleware", "execution plan"],
-    "kubernetes": ["kubernetes", "k8s", "pod", "helm", "operator", "deployment", "eviction"],
+    "kubernetes": [
+        "kubernetes",
+        "k8s",
+        "pod",
+        "helm",
+        "operator",
+        "deployment",
+        "eviction",
+    ],
     "supervisor": ["supervisor", "exec", "process", "spiffe workload api"],
     "python": ["python", "sdk", "pep 517", "pip", "wheel", "sdist", "maturin"],
     "sdk": ["sdk", "protobuf", "grpc", "client"],
@@ -102,11 +124,14 @@ class BirdsEyeReportGenerator:
         if include_synthesis:
             try:
                 from app.reports.synthesis import synthesize_team_summaries
+
                 team_synthesis = synthesize_team_summaries(
                     team_synthesis, deltas, self._llm_client, self._model
                 )
             except Exception:
-                logger.exception("Team synthesis generation failed, using empty summaries")
+                logger.exception(
+                    "Team synthesis generation failed, using empty summaries"
+                )
 
             narrative = self._generate_narrative(
                 summary, critical_list, team_breakdown, area_heatmap
@@ -236,21 +261,25 @@ class BirdsEyeReportGenerator:
             r = current_by_num[num]
             team = r.primary_team
             deltas.setdefault(team, {"new": [], "resolved": []})
-            deltas[team]["new"].append({
-                "number": r.issue_number,
-                "urgency": r.urgency.value,
-                "title": r.issue_title,
-            })
+            deltas[team]["new"].append(
+                {
+                    "number": r.issue_number,
+                    "urgency": r.urgency.value,
+                    "title": r.issue_title,
+                }
+            )
 
         for num in resolved_nums:
             r = previous_by_num[num]
             team = r.primary_team
             deltas.setdefault(team, {"new": [], "resolved": []})
-            deltas[team]["resolved"].append({
-                "number": r.issue_number,
-                "urgency": r.urgency.value,
-                "title": r.issue_title,
-            })
+            deltas[team]["resolved"].append(
+                {
+                    "number": r.issue_number,
+                    "urgency": r.urgency.value,
+                    "title": r.issue_title,
+                }
+            )
 
         return deltas
 

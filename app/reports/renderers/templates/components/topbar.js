@@ -102,17 +102,65 @@ function buildTopBar() {
   filterWrap.appendChild(dropdown);
   right.appendChild(filterWrap);
 
+  var allUsers = (function() {
+    var set = {};
+    (d.all_issues || []).forEach(function(i) { if (i.author_login) set[i.author_login] = 1; });
+    var prs = (d.pr_health && d.pr_health.all_open_pr_summaries) || [];
+    prs.forEach(function(pr) {
+      if (pr.author) set[pr.author] = 1;
+      (pr.participants || []).forEach(function(p) { if (p) set[p] = 1; });
+    });
+    var vouches = (d.vouch_status && d.vouch_status.pending_vouches) || [];
+    vouches.forEach(function(v) { if (v.author) set[v.author] = 1; });
+    return Object.keys(set).sort(function(a, b) { return a.toLowerCase().localeCompare(b.toLowerCase()); });
+  })();
+
+  var searchWrap = el("div", "search-wrap");
   var searchInput = el("input", "search-input");
-  searchInput.type = "text"; searchInput.placeholder = "Search issues...";
+  searchInput.type = "text"; searchInput.placeholder = "Search issues or @user...";
+  var userDropdown = el("div", "user-dropdown");
+
+  function _showUserDropdown(query) {
+    userDropdown.innerHTML = "";
+    var q = query.toLowerCase();
+    var matches = allUsers.filter(function(u) { return u.toLowerCase().indexOf(q) !== -1; });
+    if (!matches.length) { userDropdown.classList.remove("open"); return; }
+    matches.slice(0, 8).forEach(function(user) {
+      var opt = el("div", "user-option");
+      opt.textContent = "@" + user;
+      opt.addEventListener("mousedown", function(e) {
+        e.preventDefault();
+        searchInput.value = "@" + user;
+        searchQuery = "@" + user;
+        userDropdown.classList.remove("open");
+        applyAllFilters();
+      });
+      userDropdown.appendChild(opt);
+    });
+    userDropdown.classList.add("open");
+  }
+
   var searchTimeout;
   searchInput.addEventListener("input", function() {
     clearTimeout(searchTimeout);
+    var val = searchInput.value;
+    if (val.indexOf("@") === 0 && val.length > 1) {
+      _showUserDropdown(val.substring(1));
+    } else {
+      userDropdown.classList.remove("open");
+    }
     searchTimeout = setTimeout(function() {
-      searchQuery = searchInput.value;
+      searchQuery = val;
       applyAllFilters();
     }, 200);
   });
-  right.appendChild(searchInput);
+  searchInput.addEventListener("blur", function() {
+    setTimeout(function() { userDropdown.classList.remove("open"); }, 150);
+  });
+
+  searchWrap.appendChild(searchInput);
+  searchWrap.appendChild(userDropdown);
+  right.appendChild(searchWrap);
 
   bar.appendChild(right);
 }

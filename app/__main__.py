@@ -17,7 +17,11 @@ def main():
     parser = argparse.ArgumentParser(description="Team issue triage agent")
     parser.add_argument(
         "--mode",
-        choices=["triage", "digest", "review", "report", "serve", "refresh", "check-closed"],
+        choices=[
+            "triage", "digest", "review", "report", "serve",
+            "refresh", "check-closed",
+            "worker-triage", "worker-report",
+        ],
         default="triage",
     )
     parser.add_argument("--verbose", "-v", action="store_true")
@@ -53,6 +57,14 @@ def main():
         run_refresh(config)
     elif args.mode == "check-closed":
         check_closed_issues(config)
+    elif args.mode == "worker-triage":
+        from app.worker import worker_triage
+
+        worker_triage(config)
+    elif args.mode == "worker-report":
+        from app.worker import worker_report
+
+        worker_report(config)
     else:
         run_triage(config)
 

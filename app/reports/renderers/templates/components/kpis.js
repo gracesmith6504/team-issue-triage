@@ -20,11 +20,9 @@ function buildKPIs() {
     var card = el("div", "kpi-card");
     card.dataset.target = k.target;
     card.style.borderLeftColor = k.color;
-    var hasVariation = k.spark && k.spark.some(function(v) { return v !== k.spark[0]; });
     card.innerHTML = '<div class="kpi-number">' + k.value + '</div>' +
       '<div class="kpi-label">' + esc(k.label) + (k.hint ? hintHTML(k.hint) : '') + '</div>' +
-      '<div class="kpi-sub">' + esc(k.sub) + '</div>' +
-      (hasVariation ? '<div class="kpi-sparkline">' + sparkSVG(k.spark, k.sparkColor) + '</div>' : '');
+      '<div class="kpi-sub">' + esc(k.sub) + '</div>';
     card.addEventListener("click", function() {
       var target = document.getElementById(k.target);
       if (target) target.scrollIntoView({behavior: "smooth", block: "start"});

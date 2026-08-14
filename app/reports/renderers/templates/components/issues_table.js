@@ -24,9 +24,14 @@ function matchesFilters(issue) {
 
   if (searchQuery) {
     var q = searchQuery.toLowerCase();
-    var t = (issue.issue_title || issue.title || "").toLowerCase();
-    var num = String(issue.issue_number || issue.number || "");
-    if (t.indexOf(q) === -1 && num.indexOf(q) === -1) return false;
+    if (q.charAt(0) === "@") {
+      var userQ = q.substring(1);
+      if ((issue.author_login || "").toLowerCase().indexOf(userQ) === -1) return false;
+    } else {
+      var t = (issue.issue_title || issue.title || "").toLowerCase();
+      var num = String(issue.issue_number || issue.number || "");
+      if (t.indexOf(q) === -1 && num.indexOf(q) === -1) return false;
+    }
   }
 
   return true;
@@ -99,18 +104,98 @@ function applyAllFilters() {
 
   var banner = document.getElementById("filter-banner");
   if (banner) banner.classList.remove("visible");
+
+  _updateTimeFilterNote();
+}
+
+function _updateTimeFilterNote() {
+  var note = document.getElementById("user-time-note");
+  var isUserSearch = searchQuery && searchQuery.charAt(0) === "@";
+  var hasTimeFilter = state.dateRange && state.dateRange !== "All";
+
+  if (!isUserSearch || !hasTimeFilter) {
+    if (note) note.style.display = "none";
+    return;
+  }
+
+  var userQ = searchQuery.substring(1).toLowerCase();
+  var hidden = 0;
+
+  d.all_issues.forEach(function(iss) {
+    if ((iss.author_login || "").toLowerCase().indexOf(userQ) !== -1 && !isWithinFilter(iss.created_at)) hidden++;
+  });
+  var prs = (d.pr_health && d.pr_health.all_open_pr_summaries) || [];
+  prs.forEach(function(pr) {
+    var match = (pr.author || "").toLowerCase().indexOf(userQ) !== -1;
+    if (!match) {
+      (pr.participants || []).forEach(function(p) { if ((p || "").toLowerCase().indexOf(userQ) !== -1) match = true; });
+    }
+    if (match && !isWithinFilter(pr.created_at)) hidden++;
+  });
+  var vouches = (d.vouch_status && d.vouch_status.pending_vouches) || [];
+  vouches.forEach(function(v) {
+    if ((v.author || "").toLowerCase().indexOf(userQ) !== -1 && !isWithinFilter(v.created_at)) hidden++;
+  });
+
+  if (!note) {
+    note = el("div", "user-time-note");
+    note.id = "user-time-note";
+    var dashboard = document.querySelector(".dashboard");
+    if (dashboard) dashboard.insertBefore(note, dashboard.firstChild);
+  }
+  if (hidden > 0) {
+    note.innerHTML = hidden + " more item" + (hidden !== 1 ? "s" : "") + " for <strong>" + esc(searchQuery) + "</strong> outside the " + state.dateRange + " filter — <a href=\"#\" class=\"note-switch\">switch to All</a>";
+    note.style.display = "";
+    note.querySelector(".note-switch").addEventListener("click", function(e) {
+      e.preventDefault();
+      state.dateRange = "All";
+      saveState(state);
+      document.querySelectorAll(".date-pill").forEach(function(p) {
+        p.classList.toggle("active", p.textContent === "All");
+      });
+      applyAllFilters();
+    });
+  } else {
+    note.style.display = "none";
+  }
+}
+
+function _matchesSearchPR(pr) {
+  if (!searchQuery) return true;
+  var q = searchQuery.toLowerCase();
+  if (q.charAt(0) !== "@") return true;
+  var userQ = q.substring(1);
+  if ((pr.author || "").toLowerCase().indexOf(userQ) !== -1) return true;
+  var participants = pr.participants || [];
+  for (var i = 0; i < participants.length; i++) {
+    if ((participants[i] || "").toLowerCase().indexOf(userQ) !== -1) return true;
+  }
+  return false;
 }
 
 function _getFilteredPRSummaries() {
   var summaries = (d.pr_health && d.pr_health.all_open_pr_summaries) || [];
-  if (!getFilterCutoffMs()) return summaries;
-  return summaries.filter(function(pr) { return isWithinFilter(pr.created_at); });
+  var filtered = summaries;
+  if (getFilterCutoffMs()) {
+    filtered = filtered.filter(function(pr) { return isWithinFilter(pr.created_at); });
+  }
+  if (searchQuery) {
+    filtered = filtered.filter(function(pr) { return _matchesSearchPR(pr); });
+  }
+  return filtered;
 }
 
 function _getFilteredVouches() {
   var vouches = (d.vouch_status && d.vouch_status.pending_vouches) || [];
-  if (!getFilterCutoffMs()) return vouches;
-  return vouches.filter(function(v) { return isWithinFilter(v.created_at); });
+  var filtered = vouches;
+  if (getFilterCutoffMs()) {
+    filtered = filtered.filter(function(v) { return isWithinFilter(v.created_at); });
+  }
+  if (searchQuery && searchQuery.charAt(0) === "@") {
+    var userQ = searchQuery.substring(1).toLowerCase();
+    filtered = filtered.filter(function(v) { return (v.author || "").toLowerCase().indexOf(userQ) !== -1; });
+  }
+  return filtered;
 }
 
 function filterPRHealth() {
@@ -141,7 +226,7 @@ function filterPRHealth() {
 
   var filtered = _getFilteredPRSummaries();
 
-  if (!getFilterCutoffMs()) {
+  if (!getFilterCutoffMs() && !searchQuery) {
     _renderPRHealthTiles(d.pr_health.total_open, d.pr_health.awaiting_review, d.pr_health.stale_14d);
     _renderAgeDistribution(d.pr_health.age_distribution);
   } else {

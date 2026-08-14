@@ -59,7 +59,7 @@ GitHub Issues → Signal Extraction → LLM Classification → Confidence Rules 
 | LLM | Claude Sonnet via `anthropic[vertex]` SDK |
 | LLM Providers | Vertex AI (default), Anthropic API |
 | Web Server | FastAPI + Uvicorn |
-| Tests | pytest (278 tests) |
+| Tests | pytest (301 tests) |
 | Lint | ruff |
 | Container | Docker (non-root) |
 | Deploy | Kubernetes Deployment or CronJob + Kustomize |
@@ -90,6 +90,9 @@ python -m app --mode report          # Generate full report with synthesis
 python -m app --mode report --output report.html          # Write HTML report to file
 python -m app --mode serve           # Start live dashboard (FastAPI on port 8080)
                                      # Runs hourly triage + daily report generation
+
+# Backfill all open issues (once deployed, hit the API)
+curl -X POST https://<route>/api/backfill
 ```
 
 ## Configuration
@@ -161,14 +164,21 @@ The repo config also defines `no_team_prefixes` (build, ci, tui, rfc, etc.) for 
 
 ## Dashboard
 
-The live dashboard includes:
+The live dashboard at `https://<route>/` includes:
 
-1. **Team routing** — Issues classified to agent-ops, acp, ai-safety, kata, agentdev, or dashboard teams
-2. **Team synthesis** — AI-generated focus summaries (2 sentences) and top 3 action items per team
-3. **Urgency classification** — Critical, high, medium, low sorted within each area
-4. **PR Health** — Upstream PR responsiveness tracking
-5. **Contributor Health** — Vouch status and pending contributor monitoring
-6. **Historical trends** — Sparklines showing urgency, review backlog, and velocity over last 7 days
+1. **KPIs** — Issues needing triage, pending vouches, stale PRs, merge velocity
+2. **Team routing** — Issues classified across 6 teams, grouped by area, with urgency dots, maintainer badges, linked PR icons, and comment counts
+3. **Team synthesis** — AI-generated focus summaries and action items per team (collapsible, with issue cross-references)
+4. **PR Health** — Age distribution chart, neglected PRs table (no human review/comment for N+ days), stale PR count, awaiting review count
+5. **Contributor Health** — Pending vouches, completed vouches (with timestamps), longest wait, blocked PRs
+6. **Dynamic summary** — Auto-generated bug/feature breakdown with area highlights
+7. **Historical trends** — Sparklines showing urgency, review backlog, and velocity over last 7 days
+
+**Client-side features:**
+- **Time filters** — 24h, 7d, 30d, All — all sections update dynamically (KPIs, team routing, PR health, contributor health)
+- **Type filters** — Any, Bugs, Features — bugs detected by title prefix, features by `Feature`/`feature request` labels
+- **Responsive layout** — works on mobile (480px) through large monitors (1800px+)
+- **Dynamic thresholds** — neglected PR threshold adapts to filter (3 days at 7d, 7 days at 30d/All)
 
 Dashboard regenerates daily at 9am UTC (configurable via `REPORT_SCHEDULE_HOUR`).
 
@@ -265,23 +275,24 @@ team-issue-triage/
 │   │   ├── store.py         # MetricsStore protocol + JsonlMetricsStore
 │   │   └── compute.py       # compute_snapshot(), build_sparklines() pure functions
 │   ├── pr_health/
-│   │   ├── models.py        # PRStatus, PRHealthFindings dataclasses
-│   │   └── fetcher.py       # GitHub PR health fetcher (age, stuck PRs, velocity)
+│   │   ├── models.py        # PRStatus, PRHealthFindings, author/review tracking
+│   │   └── fetcher.py       # GitHub PR health fetcher (age, neglected PRs, velocity, participants)
 │   ├── vouch/
-│   │   ├── models.py        # VouchStatus, PendingVouch dataclasses
-│   │   └── fetcher.py       # GitHub Discussions vouch tracker (GraphQL)
+│   │   ├── models.py        # VouchFindings, PendingVouch, CompletedVouch dataclasses
+│   │   └── fetcher.py       # GitHub Discussions vouch tracker (GraphQL, vouch timestamps)
 │   └── reports/
 │       ├── models.py        # BirdsEyeReport, ReportSummary, TeamSummary, AreaTrend
 │       ├── birds_eye.py     # Report generator (computes all sections + LLM narrative)
 │       ├── duplicates.py    # Duplicate detector (prefix grouping + token overlap)
 │       └── renderers/
-│           ├── html.py      # Interactive HTML dashboard with sparklines
-│           └── markdown.py  # Markdown renderer for bird's eye report
+│           ├── html.py      # HTML dashboard renderer (area labels, comment counts, dedup)
+│           ├── markdown.py  # Markdown renderer for bird's eye report
+│           └── templates/   # Jinja2 base template + JS components (12 modules)
 ├── profiles/
 │   ├── openshell.yaml       # Repo config (references teams, thresholds, none_examples)
 │   └── teams/               # 6 team profile YAMLs
 ├── k8s/                     # Kubernetes manifests
-├── tests/                   # 278 tests (unit + integration)
+├── tests/                   # 301 tests (unit + integration)
 ├── Dockerfile               # Non-root container (UID 1001)
 ├── Makefile                 # test, lint, format, build
 ├── requirements.txt
@@ -300,12 +311,12 @@ Hexagonal architecture — pure core logic with pluggable adapters:
 - **PR Health** (`app/pr_health/`) — GitHub REST API fetcher for PR age distribution, stuck PRs, merge velocity, review wait times.
 - **Vouch** (`app/vouch/`) — GitHub GraphQL fetcher for vouch discussion tracking, response times, pending contributor counts.
 - **Reports** (`app/reports/`) — bird's eye view generator, duplicate detector, HTML dashboard and markdown renderers.
-- **Server** (`app/server.py`) — FastAPI web server with background scheduler. Runs triage hourly, enriches issues with linked PR detection, caches and serves the HTML dashboard.
+- **Server** (`app/server.py`) — FastAPI web server with background scheduler. Runs triage hourly, enriches issues with linked PR detection, caches and serves the HTML dashboard. Includes `POST /api/backfill` for one-time full-issue ingestion and `POST /api/refresh` for manual report regeneration.
 
 ## Development
 
 ```bash
-make test      # Run all 278 tests
+make test      # Run all 301 tests
 make lint      # Check with ruff
 make format    # Auto-format with ruff
 make build     # Build Docker image

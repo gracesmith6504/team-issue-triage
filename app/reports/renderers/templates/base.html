@@ -91,6 +91,29 @@ body {
 }
 .search-input::placeholder { color: var(--text-dim); }
 .search-input:focus { border-color: var(--accent); background: var(--bg-card); box-shadow: 0 0 0 3px rgba(9,105,218,0.1); }
+.search-wrap { position: relative; }
+.user-dropdown {
+  display: none; position: absolute; top: 100%; left: 0; right: 0;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  z-index: 200; max-height: 240px; overflow-y: auto;
+}
+.user-dropdown.open { display: block; }
+.user-option {
+  padding: 8px 14px; font-size: 13px; color: var(--text-primary);
+  cursor: pointer; transition: background 0.1s;
+}
+.user-option:hover { background: var(--bg-surface); }
+.user-option:first-child { border-radius: 8px 8px 0 0; }
+.user-option:last-child { border-radius: 0 0 8px 8px; }
+
+.user-time-note {
+  background: rgba(9,105,218,0.06); border: 1px solid rgba(9,105,218,0.15);
+  border-radius: 8px; padding: 10px 16px; margin-bottom: 16px;
+  font-size: 13px; color: var(--text-secondary);
+}
+.user-time-note a.note-switch { color: var(--accent); text-decoration: none; font-weight: 500; }
+.user-time-note a.note-switch:hover { text-decoration: underline; }
 
 .team-filter-wrap { position: relative; }
 .team-filter-btn {

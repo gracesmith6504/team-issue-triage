@@ -1,0 +1,57 @@
+# Example team profile — copy and adapt for your team.
+#
+# Each team gets one file. The team_id is used as the routing key
+# throughout the dashboard and notifications.
+
+team_id: my-team
+team_name: "My Team"
+
+description: |
+  What this team owns in the upstream repo. Be specific — the LLM uses
+  this to decide whether an issue belongs to your team.
+
+# Area prefixes from issue titles that this team owns.
+# primary: strong ownership — issues here route to this team first.
+# secondary: partial ownership — team gets notified if urgency is high enough.
+areas:
+  primary:
+    - sdk
+    - api
+    - cli
+  secondary:
+    - server
+    - proxy
+
+# Override default urgency for specific patterns.
+# The LLM checks issue titles/bodies against these descriptions.
+urgency_overrides:
+  critical:
+    - "API breaking changes in released versions"
+    - "Security vulnerabilities in SDK"
+  high:
+    - "Regressions in CLI commands"
+
+# Few-shot examples for the LLM — show it what your team's issues look like.
+# More examples = better routing accuracy.
+examples:
+  - title: "SDK client crashes on connection timeout"
+    urgency: high
+    reasoning: "SDK stability is this team's primary responsibility"
+  - title: "Add --json flag to CLI list command"
+    urgency: medium
+    reasoning: "CLI enhancement, not a regression"
+
+# Notification channels — where to send alerts for this team.
+# Env vars like ${SLACK_WEBHOOK_MY_TEAM} are resolved at runtime.
+notifications:
+  receive_secondary: true
+  secondary_min_urgency: high
+  channels:
+    - adapter: slack_webhook
+      config:
+        webhook_url: "${SLACK_WEBHOOK_MY_TEAM}"
+      immediate_on: [critical, high]
+    - adapter: log
+      config:
+        level: info
+      immediate_on: [critical, high, medium, low]

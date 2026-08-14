@@ -107,10 +107,9 @@ def fetch_vouch_status(repo: str, token: str) -> VouchFindings:
     over_30d = sum(1 for v in pending if v.wait_days > 30)
 
     responded_count = sum(
-        1 for c in completed
-        if (now - datetime.fromisoformat(
-            c.vouched_at.replace("Z", "+00:00")
-        )).days <= 7
+        1
+        for c in completed
+        if (now - datetime.fromisoformat(c.vouched_at.replace("Z", "+00:00"))).days <= 7
     )
 
     return VouchFindings(

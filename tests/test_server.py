@@ -96,9 +96,7 @@ def test_get_state_unauthorized(client):
 
 
 def test_get_state_with_auth(client):
-    resp = client.get(
-        "/api/state", headers={"Authorization": "Bearer test-token"}
-    )
+    resp = client.get("/api/state", headers={"Authorization": "Bearer test-token"})
     assert resp.status_code == 200
     data = resp.json()
     assert "last_checked" in data

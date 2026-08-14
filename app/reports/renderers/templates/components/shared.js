@@ -46,7 +46,7 @@ if (!state.collapsed) state.collapsed = {};
 state.dateRange = "All";
 state.issueTypeFilter = "Any";
 
-var d = REPORT_DATA;
+var d;
 
 function getFilterCutoffMs() {
   if (!state.dateRange || state.dateRange === "All") return null;

@@ -1,0 +1,45 @@
+# Example profile — copy and adapt for your repo.
+#
+# 1. Copy this file:  cp example.yaml myrepo.yaml
+# 2. Create team files: mkdir -p teams/ and add one YAML per team
+# 3. Set PROFILE_NAME=myrepo when deploying
+#
+# On Kubernetes, you can put these in a ConfigMap and mount to /config/profiles/
+# then set PROFILES_DIR=/config/profiles in your env.
+
+repo: "org/repo-name"
+pinned_version: ""
+
+# GitHub usernames of maintainers (used by PR health section)
+codeowners:
+  - maintainer1
+  - maintainer2
+
+# One file per team — paths relative to this file's directory
+team_profiles:
+  - teams/my-team.yaml
+
+# Issue prefixes that no team owns (routed to "none")
+# These are matched against the area tag in issue titles, e.g. feat(build): ...
+no_team_prefixes:
+  - build
+  - ci
+  - deps
+
+# Examples of issues that should NOT be routed to any team
+# The LLM uses these to learn what "none" looks like
+none_examples:
+  - title: "feat(build): switch to Bazel"
+    reasoning: "Build system internals — no team owns upstream CI/CD"
+
+# How confident the LLM must be for various routing decisions
+confidence_thresholds:
+  auto_assign: 0.8       # above this: confident single-team assignment
+  multi_team_gap: 0.2    # if gap between top two teams < this: flag as multi-team
+  uncertain: 0.5         # below this: flag as uncertain
+  none_min: 0.75         # above this: confident "no team cares"
+
+reporting:
+  period: weekly
+  period_start: monday
+  timezone: UTC

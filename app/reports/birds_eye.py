@@ -88,7 +88,7 @@ class BirdsEyeReportGenerator:
         self._model = model
         self._period_label = period_label
 
-    def generate(self) -> BirdsEyeReport:
+    def generate(self, *, include_synthesis: bool = True) -> BirdsEyeReport:
         summary = self._compute_summary()
         critical_list = self._extract_critical_list()
         team_breakdown = self._compute_team_breakdown()
@@ -98,18 +98,20 @@ class BirdsEyeReportGenerator:
         team_synthesis = self._build_team_synthesis()
         deltas = self._compute_team_deltas()
 
-        # Generate LLM-based focus summaries and action items
-        try:
-            from app.reports.synthesis import synthesize_team_summaries
-            team_synthesis = synthesize_team_summaries(
-                team_synthesis, deltas, self._llm_client, self._model
-            )
-        except Exception:
-            logger.exception("Team synthesis generation failed, using empty summaries")
+        narrative = ""
+        if include_synthesis:
+            try:
+                from app.reports.synthesis import synthesize_team_summaries
+                team_synthesis = synthesize_team_summaries(
+                    team_synthesis, deltas, self._llm_client, self._model
+                )
+            except Exception:
+                logger.exception("Team synthesis generation failed, using empty summaries")
 
-        narrative = self._generate_narrative(
-            summary, critical_list, team_breakdown, area_heatmap
-        )
+            narrative = self._generate_narrative(
+                summary, critical_list, team_breakdown, area_heatmap
+            )
+
         generated_at = datetime.now(timezone.utc).isoformat()
 
         all_issues = sorted(

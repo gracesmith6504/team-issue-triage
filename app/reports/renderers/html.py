@@ -179,3 +179,8 @@ def render_html(
     report_json = json.dumps(data, indent=2).replace("<", "\\u003c")
     template = _get_template()
     return template.render(report_json=report_json)
+
+
+def render_shell() -> str:
+    template = _get_template()
+    return template.render()

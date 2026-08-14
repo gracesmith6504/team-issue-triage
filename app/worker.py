@@ -85,7 +85,7 @@ def worker_triage(config: TriageConfig) -> None:
     if not new_issues:
         return
 
-    repo_config = load_repo_config("openshell", profiles_dir=config.profiles_dir)
+    repo_config = load_repo_config(config.profile_name, profiles_dir=config.profiles_dir)
     system_prompt = build_system_prompt(repo_config)
     router = _build_notification_router(repo_config)
 

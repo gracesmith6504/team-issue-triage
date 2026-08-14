@@ -3,6 +3,7 @@ kind: ConfigMap
 metadata:
   name: triage-config
 data:
+  PROFILE_NAME: "openshell"
   WATCH_REPOS: "NVIDIA/OpenShell"
   LLM_PROVIDER: "vertex"
   VERTEX_PROJECT_ID: "itpc-gcp-ai-eng-claude"

@@ -1233,11 +1233,31 @@ tr.stuck-hidden { display: none; }
 <body>
 
 <div class="topbar" id="topbar"></div>
-<div class="dashboard" id="app"></div>
+<div class="dashboard" id="app">
+  <div class="loading-skeleton" id="loading-skeleton">
+    <div class="kpi-grid">
+      <div class="kpi-card skeleton-pulse"><div class="skeleton-line" style="width:40%;height:38px;margin-bottom:10px"></div><div class="skeleton-line" style="width:60%"></div></div>
+      <div class="kpi-card skeleton-pulse"><div class="skeleton-line" style="width:35%;height:38px;margin-bottom:10px"></div><div class="skeleton-line" style="width:55%"></div></div>
+      <div class="kpi-card skeleton-pulse"><div class="skeleton-line" style="width:45%;height:38px;margin-bottom:10px"></div><div class="skeleton-line" style="width:50%"></div></div>
+      <div class="kpi-card skeleton-pulse"><div class="skeleton-line" style="width:30%;height:38px;margin-bottom:10px"></div><div class="skeleton-line" style="width:65%"></div></div>
+    </div>
+    <div class="skeleton-band skeleton-pulse"></div>
+    <div class="skeleton-band skeleton-pulse"></div>
+    <div class="skeleton-band skeleton-pulse"></div>
+  </div>
+</div>
 
-<script>
-const REPORT_DATA = {{ report_json }};
-</script>
+<style>
+.skeleton-pulse { animation: skeleton-pulse 1.5s ease-in-out infinite; }
+@keyframes skeleton-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+.skeleton-line { background: var(--border-subtle); border-radius: 6px; height: 14px; }
+.skeleton-band { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); height: 64px; margin-bottom: 10px; }
+.loading-error { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+.loading-error h2 { font-size: 18px; color: var(--text-primary); margin-bottom: 8px; }
+.loading-error button { margin-top: 16px; padding: 8px 20px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; font-size: 13px; }
+.loading-error button:hover { opacity: 0.9; }
+</style>
+
 <script>
 (function() {
   "use strict";
@@ -1255,7 +1275,10 @@ const REPORT_DATA = {{ report_json }};
   {% include "components/duplicates.js" %}
   {% include "components/footer.js" %}
 
-  document.addEventListener("DOMContentLoaded", function() {
+  function initDashboard() {
+    var skeleton = document.getElementById("loading-skeleton");
+    if (skeleton) skeleton.remove();
+
     buildTopBar();
     var app = document.getElementById("app");
 
@@ -1277,7 +1300,36 @@ const REPORT_DATA = {{ report_json }};
     if (d.vouch_status) app.appendChild(buildContributorHealth());
     app.appendChild(buildFooter());
     applyAllFilters();
-  });
+  }
+
+  function showError(msg) {
+    var skeleton = document.getElementById("loading-skeleton");
+    if (skeleton) skeleton.remove();
+    var app = document.getElementById("app");
+    app.innerHTML = '<div class="loading-error"><h2>Unable to load dashboard</h2><p>' +
+      esc(msg) + '</p><button onclick="location.reload()">Retry</button></div>';
+  }
+
+  async function loadReport() {
+    try {
+      var resp = await fetch("/api/v1/report");
+      if (resp.status === 503) {
+        showError("The first triage cycle is still running. This page will retry automatically.");
+        setTimeout(loadReport, 15000);
+        return;
+      }
+      if (!resp.ok) {
+        showError("API returned " + resp.status);
+        return;
+      }
+      d = await resp.json();
+      initDashboard();
+    } catch (err) {
+      showError("Network error: " + err.message);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", loadReport);
 
 })();
 </script>

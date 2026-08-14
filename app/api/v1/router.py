@@ -12,14 +12,6 @@ from .assembler import assemble_report
 logger = logging.getLogger(__name__)
 
 
-def _check_auth(config: TriageConfig, authorization: str | None) -> JSONResponse | None:
-    if not config.api_token:
-        return None
-    if not authorization or authorization != f"Bearer {config.api_token}":
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    return None
-
-
 def _section_response(cache: SectionCache, section: str) -> JSONResponse:
     entry = cache.get(section)
     if entry is None:
@@ -41,7 +33,7 @@ def create_v1_router(cache: SectionCache, config: TriageConfig) -> APIRouter:
 
     @router.get("/report")
     async def combined_report():
-        report = assemble_report(cache)
+        report = assemble_report(cache, config)
         if not report.get("summary"):
             return JSONResponse(
                 {"error": "Report not yet generated", "status": "warming_up"},

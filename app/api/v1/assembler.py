@@ -3,20 +3,27 @@ from datetime import datetime, timezone
 
 from app.cache.section_cache import SectionCache
 from app.cache.sections import Section
+from app.config import TriageConfig
 
 
-def assemble_report(cache: SectionCache) -> dict:
+def assemble_report(cache: SectionCache, config: TriageConfig) -> dict:
     result = {}
 
     issues = cache.get(Section.ISSUES)
     if issues:
         result.update(copy.deepcopy(issues.data))
 
-    pr_health = cache.get(Section.PR_HEALTH)
-    result["pr_health"] = copy.deepcopy(pr_health.data) if pr_health else None
+    if config.pr_health_enabled:
+        pr_health = cache.get(Section.PR_HEALTH)
+        result["pr_health"] = copy.deepcopy(pr_health.data) if pr_health else None
+    else:
+        result["pr_health"] = None
 
-    vouch = cache.get(Section.VOUCH)
-    result["vouch_status"] = copy.deepcopy(vouch.data) if vouch else None
+    if config.vouch_tracking_enabled:
+        vouch = cache.get(Section.VOUCH)
+        result["vouch_status"] = copy.deepcopy(vouch.data) if vouch else None
+    else:
+        result["vouch_status"] = None
 
     synthesis = cache.get(Section.SYNTHESIS)
     if synthesis:

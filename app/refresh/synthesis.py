@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 def refresh_synthesis(config: TriageConfig, cache: SectionCache) -> None:
     from app.core.llm import build_llm_client, resolve_model
+    from app.reports.models import AreaGroup, TeamSynthesis
     from app.reports.synthesis import synthesize_team_summaries
-    from app.reports.models import TeamSynthesis
 
     issues_entry = cache.get(Section.ISSUES)
     if not issues_entry:
@@ -25,11 +25,25 @@ def refresh_synthesis(config: TriageConfig, cache: SectionCache) -> None:
     teams = {}
     deltas = {}
     for team_id, team_data in team_breakdown.items():
-        issues = team_data.get("issues", [])
+        area_groups = {}
+        for area_name, area_data in team_data.get("areas", {}).items():
+            if isinstance(area_data, dict):
+                area_groups[area_name] = AreaGroup(
+                    area=area_name,
+                    total=area_data.get("total", 0),
+                    by_urgency=area_data.get("by_urgency", {}),
+                    issues=[],
+                )
+
         teams[team_id] = TeamSynthesis(
+            team_id=team_id,
+            team_name=team_data.get("team_name", team_id),
             focus_summary="",
             actions=[],
-            issues=issues,
+            area_groups=area_groups,
+            total=team_data.get("total", 0),
+            by_urgency=team_data.get("by_urgency", {}),
+            trend=team_data.get("trend", "0"),
         )
         deltas[team_id] = {
             "total": team_data.get("total", 0),
@@ -49,11 +63,11 @@ def refresh_synthesis(config: TriageConfig, cache: SectionCache) -> None:
             tid: {
                 "focus_summary": t.focus_summary,
                 "actions": t.actions,
-                "claims": getattr(t, "claims", None),
-                "structured_actions": getattr(t, "structured_actions", None),
-                "generated_at": getattr(t, "generated_at", ""),
-                "covered_issues": getattr(t, "covered_issues", 0),
-                "model": getattr(t, "model", ""),
+                "claims": t.claims,
+                "structured_actions": t.structured_actions,
+                "generated_at": t.generated_at,
+                "covered_issues": t.covered_issues,
+                "model": t.model,
             }
             for tid, t in teams.items()
         },

@@ -46,7 +46,7 @@ def create_app(config: TriageConfig) -> FastAPI:
         lifespan=lifespan,
     )
 
-    cache_dir = config.state_path.parent / "cache" if config.state_path else None
+    cache_dir = config.state_path.parent / "cache" / config.profile_name if config.state_path else None
     section_cache = SectionCache(persist_dir=cache_dir)
     section_cache.load_persisted()
 
@@ -207,6 +207,11 @@ def create_app(config: TriageConfig) -> FastAPI:
                 repo_config.repo,
                 len(repo_config.team_profiles),
             )
+            for s in Section:
+                section_cache.invalidate(s)
+            refresher = getattr(app.state, "refresher", None)
+            if refresher:
+                refresher.refresh_all_now()
             return {
                 "status": "reloaded",
                 "profile": config.profile_name,

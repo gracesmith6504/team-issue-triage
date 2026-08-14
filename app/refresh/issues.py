@@ -1,5 +1,5 @@
 import logging
-from datetime import timedelta, timezone, datetime
+from datetime import datetime, timezone
 
 from app.cache.section_cache import SectionCache
 from app.cache.sections import SECTION_TTLS, Section
@@ -10,20 +10,32 @@ logger = logging.getLogger(__name__)
 
 
 def refresh_issues(config: TriageConfig, cache: SectionCache) -> None:
-    results = read_results_as_triage(config.assessment_log_path)
-    current = [r for r in results if not r.closed]
-
-    now = datetime.now(timezone.utc)
-    previous_start = now - timedelta(days=60)
-    current_start = now - timedelta(days=30)
-    previous = [r for r in read_results_as_triage(
-        config.assessment_log_path,
-        start_date=previous_start.isoformat(),
-        end_date=current_start.isoformat(),
-    ) if not r.closed]
-
+    from app.core.profiles import load_repo_config
     from app.reports.birds_eye import BirdsEyeReportGenerator
-    generator = BirdsEyeReportGenerator(current, previous, None, None, "All time")
+    from app.reports.periods import compute_period
+
+    repo_config = load_repo_config(config.profile_name, profiles_dir=config.profiles_dir)
+    now = datetime.now(timezone.utc)
+    current_start, previous_start, period_label = compute_period(
+        repo_config.reporting, now
+    )
+
+    current = [
+        r for r in read_results_as_triage(
+            config.assessment_log_path, start_date=current_start.isoformat()
+        )
+        if not r.closed
+    ]
+    previous = [
+        r for r in read_results_as_triage(
+            config.assessment_log_path,
+            start_date=previous_start.isoformat(),
+            end_date=current_start.isoformat(),
+        )
+        if not r.closed
+    ]
+
+    generator = BirdsEyeReportGenerator(current, previous, None, None, period_label)
     report = generator.generate(include_synthesis=False)
 
     enrichment = None
@@ -43,4 +55,4 @@ def refresh_issues(config: TriageConfig, cache: SectionCache) -> None:
     )
     issues_data = {k: data[k] for k in issues_keys if k in data}
     cache.set(Section.ISSUES, issues_data, SECTION_TTLS[Section.ISSUES])
-    logger.info("Issues section refreshed: %d issues", len(current))
+    logger.info("Issues section refreshed: %d current, %d previous", len(current), len(previous))

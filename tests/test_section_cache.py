@@ -72,3 +72,16 @@ def test_persist_and_load(tmp_path):
     assert entry is not None
     assert entry.data == {"total": 5}
     assert entry.ttl_seconds == 3600
+
+
+def test_invalidate_removes_persisted_file(tmp_path):
+    cache = SectionCache(persist_dir=tmp_path)
+    cache.set("issues", {"total": 5}, ttl_seconds=3600)
+    assert (tmp_path / "issues.json").exists()
+    cache.invalidate("issues")
+    assert cache.get("issues") is None
+    assert not (tmp_path / "issues.json").exists()
+
+    cache2 = SectionCache(persist_dir=tmp_path)
+    cache2.load_persisted()
+    assert cache2.get("issues") is None

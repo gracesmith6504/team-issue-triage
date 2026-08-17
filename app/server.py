@@ -113,10 +113,7 @@ def create_app(config: TriageConfig) -> FastAPI:
         )
 
     @app.get("/api/state")
-    async def get_state(authorization: str | None = Header(None)):
-        auth_err = _check_auth(config, authorization)
-        if auth_err:
-            return auth_err
+    async def get_state():
         tracker = StateTracker(config.state_path, config.default_lookback_hours)
         state = tracker.load()
         return {

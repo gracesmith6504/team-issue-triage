@@ -25,7 +25,7 @@ Built for [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) by the Red Hat
 
 ```mermaid
 flowchart LR
-    subgraph Triage["Hourly Triage (CronJob)"]
+    subgraph Triage["Hourly Triage (OpenShell Sandbox CronJob)"]
         GH["GitHub Issues"] --> SIG["Signal\nExtraction"]
         SIG --> LLM["LLM\nClassification"]
         LLM --> CONF["Confidence\nRules"]
@@ -47,7 +47,7 @@ flowchart LR
     subgraph Refresh["Background Refresh"]
         R_ISS["Issues\n(2h)"]
         R_PR["PR Health\n(4h)"]
-        R_SYN["Synthesis\n(24h)"]
+        R_SYN["Synthesis\n(weekly, Monday)"]
     end
 
     CACHE --- Refresh
@@ -55,7 +55,7 @@ flowchart LR
 
 **Triage pipeline** — each new issue gets one LLM call with all team descriptions, a routing table, and calibration examples. Confidence rules auto-assign high-confidence matches and flag ambiguous ones for human review.
 
-**Dashboard** — API-first architecture with independently cached sections. Issues refresh every 2 hours, PR health every 4 hours, LLM synthesis daily. If GitHub goes down, the dashboard keeps serving cached data.
+**Dashboard** — API-first architecture with independently cached sections. Issues refresh every 2 hours, PR health every 4 hours, LLM synthesis weekly (Monday). If GitHub goes down, the dashboard keeps serving cached data.
 
 ## Features
 
@@ -302,11 +302,11 @@ Uses Claude Sonnet (`claude-sonnet-4-6`) via Vertex AI or Anthropic API. All cal
 
 | Call | When | Volume |
 |------|------|--------|
-| Issue triage | 1 per new issue | ~5/day (only unseen issues) |
-| Team synthesis | 1 per team | ~6/day (24h refresh) |
-| Narrative | 1 total | 1/day |
+| Issue triage | 1 per new issue | ~5–15/day (only unseen issues) |
+| Team synthesis | 1 per team | ~6/week (Monday refresh) |
+| Narrative | 1 total | 1/week (Monday refresh) |
 
-**Typical total: ~12 LLM calls/day.** Backfill (one-time) adds 1 call per existing issue.
+**Typical total: ~15 LLM calls/day on active days, ~7 on quiet days.** Weekly synthesis adds ~7 calls on Monday. Backfill (one-time) adds 1 call per existing issue.
 
 GitHub API usage is mostly from PR health — fetches reviews and comments for each open PR. Stays well within the 5,000 requests/hour rate limit. Dashboard pod idles at ~50MB RAM between refreshes.
 
@@ -329,7 +329,7 @@ make build     # Build container image
 | `WATCH_REPOS` | — | Comma-separated `owner/repo` list |
 | `PROFILE_NAME` | `openshell` | Which profile YAML to load |
 | `GITHUB_TOKEN` | — | GitHub personal access token (required) |
-| `LLM_PROVIDER` | `vertex` | `vertex` or `anthropic` |
+| `LLM_PROVIDER` | `vertex` | `vertex` or `anthropic` (use `anthropic` + `ANTHROPIC_BASE_URL=https://inference.local` when running inside an OpenShell sandbox) |
 | `LLM_MODEL` | auto | Model name (defaults per provider) |
 | `VERTEX_PROJECT_ID` | — | GCP project ID (required for Vertex) |
 | `VERTEX_REGION` | `us-east5` | GCP region |

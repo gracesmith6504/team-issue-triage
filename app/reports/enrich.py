@@ -7,6 +7,75 @@ from app.sources.github import GITHUB_API
 
 logger = logging.getLogger(__name__)
 
+GITHUB_GRAPHQL = "https://api.github.com/graphql"
+
+_LINKED_PR_QUERY = """
+query($owner: String!, $name: String!, $cursor: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequests(states: [OPEN], first: 100, after: $cursor) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        url
+        isDraft
+        closingIssuesReferences(first: 25) {
+          nodes { number }
+        }
+      }
+    }
+  }
+}
+"""
+
+
+def _fetch_linked_prs_graphql(repo: str, token: str) -> dict[int, dict]:
+    """One GraphQL batch call over all open PRs → issue_number: {has_pr, url, draft}.
+
+    Uses closingIssuesReferences (Closes/Fixes/Resolves keywords) rather than
+    per-issue timeline calls, so covers all 341 issues in ~2 paginated requests.
+    """
+    owner, name = repo.split("/", 1)
+    headers = {
+        "Authorization": f"bearer {token}",
+        "Content-Type": "application/json",
+    }
+    linked: dict[int, dict] = {}
+    cursor = None
+
+    for _ in range(20):  # max 2000 PRs
+        resp = requests.post(
+            GITHUB_GRAPHQL,
+            json={
+                "query": _LINKED_PR_QUERY,
+                "variables": {"owner": owner, "name": name, "cursor": cursor},
+            },
+            headers=headers,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        body = resp.json()
+
+        if "errors" in body:
+            logger.error("GraphQL errors fetching linked PRs: %s", body["errors"])
+            break
+
+        prs = body["data"]["repository"]["pullRequests"]
+        for pr in prs["nodes"]:
+            for issue in pr["closingIssuesReferences"]["nodes"]:
+                num = issue["number"]
+                if num not in linked:
+                    linked[num] = {
+                        "has_pr": True,
+                        "url": pr["url"],
+                        "draft": pr["isDraft"],
+                    }
+
+        if not prs["pageInfo"]["hasNextPage"]:
+            break
+        cursor = prs["pageInfo"]["endCursor"]
+
+    logger.info("Linked PRs: %d issues have an open PR (GraphQL)", len(linked))
+    return linked
+
 
 def _count_issues(repo: str, token: str, label: str | None = None) -> int:
     headers = {

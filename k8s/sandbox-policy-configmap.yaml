@@ -1,0 +1,150 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: triage-sandbox-policy
+  namespace: openshell
+  labels:
+    app.kubernetes.io/part-of: team-issue-triage
+    app.kubernetes.io/component: triage-worker
+data:
+  # Policy used by openshell sandbox create --policy
+  # Agent can ONLY reach: GitHub API, inference endpoint, dashboard service, Slack.
+  # All other outbound traffic is blocked at L7 by the supervisor proxy.
+  #
+  # INFERENCE NOTE: Two options — pick one:
+  #   Option A (inference.local): Use if Mark's vertex-pr-reviewer provider is configured
+  #     on the gateway. Agent calls https://inference.local/v1, gateway routes to Vertex AI.
+  #     Set LLM_PROVIDER=openai in the CronJob env. No GCP creds in the sandbox.
+  #   Option B (direct Vertex): Uncomment the vertex_ai and google_auth sections below.
+  #     Pass GOOGLE_APPLICATION_CREDENTIALS_JSON as --env in the CronJob.
+  #     Set LLM_PROVIDER=vertex in the CronJob env.
+  sandbox-policy.yaml: |
+    version: 1
+
+    filesystem_policy:
+      include_workdir: true
+      read_only:
+        - /usr
+        - /lib
+        - /etc
+        - /app
+        - /opt
+        - /proc/self
+        - /dev/urandom
+        - /var/log
+      read_write:
+        - /sandbox
+        - /tmp
+        - /dev/null
+
+    landlock:
+      compatibility: best_effort
+
+    process:
+      run_as_user: sandbox
+      run_as_group: sandbox
+
+    network_policies:
+      github_api:
+        name: GitHub API
+        endpoints:
+          - host: api.github.com
+            port: 443
+            protocol: rest
+            tls: terminate
+            enforcement: enforce
+            rules:
+              - allow:
+                  method: GET
+                  path: /repos/**
+              - allow:
+                  method: GET
+                  path: /search/**
+              - allow:
+                  method: POST
+                  path: /repos/*/*/issues/*/comments
+              - allow:
+                  method: POST
+                  path: /repos/*/*/issues/*/labels
+              - allow:
+                  method: GET
+                  path: /rate_limit
+        binaries:
+          - path: /usr/local/bin/python*
+          - path: /usr/local/bin/python3*
+
+      # Option A: inference.local (preferred — no GCP creds in sandbox)
+      # Requires the vertex-ai provider registered with the gateway (openshell provider list).
+      inference_local:
+        name: OpenShell inference router (Vertex AI via gateway)
+        endpoints:
+          - host: inference.local
+            port: 443
+            protocol: rest
+            tls: terminate
+            enforcement: enforce
+            access: full
+        binaries:
+          - path: /usr/local/bin/python*
+          - path: /usr/local/bin/python3*
+
+      # Option B: direct Vertex AI — uncomment if inference.local is not available
+      # Also uncomment google_auth below, and pass GOOGLE_APPLICATION_CREDENTIALS_JSON
+      # as --env in the CronJob, and set LLM_PROVIDER=vertex.
+      #
+      # vertex_ai:
+      #   name: Vertex AI (Claude via Anthropic SDK)
+      #   endpoints:
+      #     - host: us-east5-aiplatform.googleapis.com
+      #       port: 443
+      #       protocol: rest
+      #       tls: terminate
+      #       enforcement: enforce
+      #       access: full
+      #   binaries:
+      #     - path: /usr/local/bin/python*
+      #     - path: /usr/local/bin/python3*
+      #
+      # google_auth:
+      #   name: Google OAuth2 (SA token refresh)
+      #   endpoints:
+      #     - host: oauth2.googleapis.com
+      #       port: 443
+      #       protocol: rest
+      #       tls: terminate
+      #       enforcement: enforce
+      #       rules:
+      #         - allow:
+      #             method: POST
+      #             path: /token
+      #   binaries:
+      #     - path: /usr/local/bin/python*
+      #     - path: /usr/local/bin/python3*
+
+      dashboard_service:
+        name: Triage dashboard (in-cluster, HTTP)
+        endpoints:
+          - host: triage-dashboard.team-issue-triage.svc.cluster.local
+            port: 8080
+            protocol: rest
+            enforcement: enforce
+            access: full
+        binaries:
+          - path: /usr/local/bin/python*
+          - path: /usr/local/bin/python3*
+
+      slack_webhook:
+        name: Slack incoming webhooks
+        endpoints:
+          - host: hooks.slack.com
+            port: 443
+            protocol: rest
+            tls: terminate
+            enforcement: enforce
+            rules:
+              - allow:
+                  method: POST
+                  path: /services/**
+        binaries:
+          - path: /usr/local/bin/python*
+          - path: /usr/local/bin/python3*

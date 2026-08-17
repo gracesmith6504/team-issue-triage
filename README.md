@@ -284,7 +284,7 @@ app/
 ├── cache/              # Thread-safe section cache with TTL + disk persistence
 ├── api/v1/             # REST API (FastAPI router + report assembler)
 ├── refresh/            # Independent section refreshers (issues, PR, vouch, synthesis, metrics)
-├── sources/            # GitHub API fetchers (issues, timeline enrichment)
+├── sources/            # GitHub API fetchers (issues, issue enrichment)
 ├── notifications/      # Adapter protocol: Slack webhook, stdout log
 ├── state/              # JSON state tracker, JSONL assessment log
 ├── pr_health/          # PR age, velocity, review wait, neglected PRs
@@ -308,7 +308,7 @@ Uses Claude Sonnet (`claude-sonnet-4-6`) via Vertex AI or Anthropic API. All cal
 
 **Typical total: ~15 LLM calls/day on active days, ~7 on quiet days.** Weekly synthesis adds ~7 calls on Monday. Backfill (one-time) adds 1 call per existing issue.
 
-GitHub API usage is mostly from PR health — fetches reviews and comments for each open PR. Stays well within the 5,000 requests/hour rate limit. Dashboard pod idles at ~50MB RAM between refreshes.
+GitHub API usage is mostly from PR health — fetches reviews and comments for each open PR. Linked PR data uses a single GraphQL batch query over all open PRs (no per-issue calls). Stays well within the 5,000 requests/hour rate limit. Dashboard pod idles at ~50MB RAM between refreshes.
 
 ## Development
 

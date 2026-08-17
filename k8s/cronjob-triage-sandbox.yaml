@@ -1,0 +1,185 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: triage-worker-sandbox
+  namespace: openshell
+  labels:
+    app.kubernetes.io/part-of: team-issue-triage
+    app.kubernetes.io/component: triage-worker
+spec:
+  # Every hour. Agent runs, posts results to dashboard, sandbox is destroyed.
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # 20 minutes max: fetch issues (~1min) + LLM scoring (~10min) + post to dashboard (~1min)
+      activeDeadlineSeconds: 1200
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: team-issue-triage
+            app.kubernetes.io/component: triage-worker
+        spec:
+          serviceAccountName: openshell-sandbox
+          restartPolicy: Never
+          containers:
+            - name: launcher
+              image: quay.io/rh-ee-grasmith/team-issue-triage-launcher:latest
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+
+                  # Write the gateway mTLS config into /tmp — always writable regardless of UID.
+                  # openshell respects XDG_CONFIG_HOME, so we point it at /tmp/openshell-cfg.
+                  # Config structure: {XDG_CONFIG_HOME}/openshell/gateways/{name}/{metadata.json,mtls/}
+                  export XDG_CONFIG_HOME=/tmp/openshell-cfg
+                  GW_DIR="/tmp/openshell-cfg/openshell/gateways/cluster"
+                  mkdir -p "${GW_DIR}/mtls"
+                  cp /etc/openshell-tls/ca.crt  "${GW_DIR}/mtls/ca.crt"
+                  cp /etc/openshell-tls/tls.crt "${GW_DIR}/mtls/tls.crt"
+                  cp /etc/openshell-tls/tls.key "${GW_DIR}/mtls/tls.key"
+                  printf '{"name":"cluster","gateway_endpoint":"https://openshell.openshell.svc.cluster.local:8080","is_remote":false,"gateway_port":0,"auth_mode":"mtls"}' \
+                    > "${GW_DIR}/metadata.json"
+                  echo "cluster" > "/tmp/openshell-cfg/openshell/active_gateway"
+
+                  exec openshell sandbox create \
+                    --gateway cluster \
+                    --from="${AGENT_IMAGE}" \
+                    --name="triage-worker-$(date +%Y%m%d-%H%M)" \
+                    --policy=/config/sandbox-policy.yaml \
+                    --no-keep \
+                    --env="GITHUB_TOKEN=${GITHUB_TOKEN}" \
+                    --env="DASHBOARD_URL=http://triage-dashboard.team-issue-triage.svc.cluster.local:8080" \
+                    --env="DASHBOARD_TOKEN=${DASHBOARD_TOKEN}" \
+                    --env="WATCH_REPOS=${WATCH_REPOS}" \
+                    --env="LLM_PROVIDER=${LLM_PROVIDER}" \
+                    --env="LLM_MODEL=${LLM_MODEL}" \
+                    --env="ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL}" \
+                    --env="ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" \
+                    --env="VERTEX_PROJECT_ID=${VERTEX_PROJECT_ID}" \
+                    --env="VERTEX_REGION=${VERTEX_REGION}" \
+                    --env="PROFILE_NAME=${PROFILE_NAME}" \
+                    --env="DEFAULT_LOOKBACK_HOURS=${DEFAULT_LOOKBACK_HOURS}" \
+                    --env="SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}" \
+                    -- python3 -m app --mode worker-triage
+              env:
+                - name: AGENT_IMAGE
+                  value: "quay.io/rh-ee-grasmith/team-issue-triage:latest"
+                # --- Secrets passed through to the sandbox as --env flags ---
+                - name: GITHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: triage-sandbox-secrets
+                      key: GITHUB_TOKEN
+                - name: DASHBOARD_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: triage-sandbox-secrets
+                      key: API_TOKEN
+                # --- Config from ConfigMap ---
+                - name: WATCH_REPOS
+                  valueFrom:
+                    configMapKeyRef:
+                      name: triage-sandbox-config
+                      key: WATCH_REPOS
+                - name: LLM_PROVIDER
+                  valueFrom:
+                    configMapKeyRef:
+                      name: triage-sandbox-config
+                      key: LLM_PROVIDER
+                - name: LLM_MODEL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: triage-sandbox-config
+                      key: LLM_MODEL
+                - name: VERTEX_PROJECT_ID
+                  valueFrom:
+                    configMapKeyRef:
+                      name: triage-sandbox-config
+                      key: VERTEX_PROJECT_ID
+                - name: VERTEX_REGION
+                  valueFrom:
+                    configMapKeyRef:
+                      name: triage-sandbox-config
+                      key: VERTEX_REGION
+                - name: PROFILE_NAME
+                  valueFrom:
+                    configMapKeyRef:
+                      name: triage-sandbox-config
+                      key: PROFILE_NAME
+                - name: DEFAULT_LOOKBACK_HOURS
+                  valueFrom:
+                    configMapKeyRef:
+                      name: triage-sandbox-config
+                      key: DEFAULT_LOOKBACK_HOURS
+                - name: ANTHROPIC_BASE_URL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: triage-sandbox-config
+                      key: ANTHROPIC_BASE_URL
+                - name: ANTHROPIC_API_KEY
+                  valueFrom:
+                    configMapKeyRef:
+                      name: triage-sandbox-config
+                      key: ANTHROPIC_API_KEY
+                - name: SLACK_WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: triage-sandbox-secrets
+                      key: SLACK_WEBHOOK_URL
+                      optional: true
+              volumeMounts:
+                - name: sandbox-policy
+                  mountPath: /config
+                  readOnly: true
+                - name: openshell-client-tls
+                  mountPath: /etc/openshell-tls
+                  readOnly: true
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              securityContext:
+                runAsNonRoot: true
+                allowPrivilegeEscalation: false
+          volumes:
+            - name: sandbox-policy
+              configMap:
+                name: triage-sandbox-policy
+                items:
+                  - key: sandbox-policy.yaml
+                    path: sandbox-policy.yaml
+            - name: openshell-client-tls
+              secret:
+                secretName: openshell-client-tls
+---
+# Config values for the sandbox (non-secret). Lives in openshell namespace
+# alongside the CronJob. Mirror of the core values from team-issue-triage/triage-config.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: triage-sandbox-config
+  namespace: openshell
+  labels:
+    app.kubernetes.io/part-of: team-issue-triage
+    app.kubernetes.io/component: triage-worker
+data:
+  # Use "anthropic" with ANTHROPIC_BASE_URL=inference.local to route through the OpenShell
+  # gateway's inference proxy — no GCP credentials needed inside the sandbox.
+  # The Anthropic SDK reads ANTHROPIC_BASE_URL from env automatically.
+  LLM_PROVIDER: "anthropic"
+  LLM_MODEL: "claude-sonnet-4-6"
+  ANTHROPIC_BASE_URL: "https://inference.local"
+  ANTHROPIC_API_KEY: "none"
+  WATCH_REPOS: "NVIDIA/OpenShell"
+  PROFILE_NAME: "openshell"
+  DEFAULT_LOOKBACK_HOURS: "1"
+  VERTEX_PROJECT_ID: "itpc-gcp-ai-eng-claude"
+  VERTEX_REGION: "us-east5"

@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# All sandbox resources live in openshell namespace alongside the gateway.
+# Apply separately from the dashboard: oc apply -k k8s/sandbox/
+namespace: openshell
+
+resources:
+  - ../sandbox-policy-configmap.yaml
+  - ../cronjob-triage-sandbox.yaml
+  - ../rbac-triage.yaml

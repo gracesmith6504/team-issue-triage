@@ -37,6 +37,15 @@ def create_app(config: TriageConfig) -> FastAPI:
             refresher = SectionRefresher(config, app.state.section_cache)
             app.state.refresher = refresher
             refresher.start_all()
+
+            if config.auto_backfill and not config.assessment_log_path.exists():
+                logger.info(
+                    "AUTO_BACKFILL=true and no assessment log found — running backfill on startup"
+                )
+                thread = threading.Thread(
+                    target=_run_backfill, args=(app,), daemon=True, name="auto-backfill"
+                )
+                thread.start()
         yield
 
     app = FastAPI(

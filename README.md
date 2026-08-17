@@ -343,6 +343,7 @@ make build     # Build container image
 | `PR_HEALTH_ENABLED` | `true` | Enable PR health tracking |
 | `VOUCH_TRACKING_ENABLED` | `true` | Enable vouch status monitoring |
 | `REPORT_SCHEDULE_HOUR` | `9` | Hour (UTC) for daily synthesis |
+| `AUTO_BACKFILL` | `false` | Set to `true` to automatically triage all existing open issues on first startup (when no assessment log exists). Useful for new deployments. |
 | `SLACK_WEBHOOK_*` | — | Per-team Slack webhooks (referenced from team YAMLs) |
 
 </details>

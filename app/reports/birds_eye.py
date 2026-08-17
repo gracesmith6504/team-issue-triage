@@ -103,12 +103,15 @@ class BirdsEyeReportGenerator:
         llm_client: LLMClientProtocol,
         model: str,
         period_label: str,
+        all_results: list[TriageResult] | None = None,
     ):
         self._current = current
         self._previous = previous
         self._llm_client = llm_client
         self._model = model
         self._period_label = period_label
+        # If provided, used for all_issues instead of current (allows full history in UI)
+        self._all_results = all_results
 
     def generate(self, *, include_synthesis: bool = True) -> BirdsEyeReport:
         summary = self._compute_summary()
@@ -139,8 +142,17 @@ class BirdsEyeReportGenerator:
 
         generated_at = datetime.now(timezone.utc).isoformat()
 
+        source = self._all_results if self._all_results is not None else self._current
+        # Deduplicate by issue number, keeping most recent assessment per issue
+        seen: dict[int, TriageResult] = {}
+        for r in source:
+            if (
+                r.issue_number not in seen
+                or r.assessed_at > seen[r.issue_number].assessed_at
+            ):
+                seen[r.issue_number] = r
         all_issues = sorted(
-            self._current,
+            seen.values(),
             key=lambda r: (_URGENCY_SORT.get(r.urgency.value, 99), r.issue_number),
         )
 

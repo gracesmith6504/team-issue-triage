@@ -39,13 +39,39 @@ def refresh_issues(config: TriageConfig, cache: SectionCache) -> None:
         if not r.closed
     ]
 
-    generator = BirdsEyeReportGenerator(current, previous, None, None, period_label)
+    all_results = [
+        r for r in read_results_as_triage(config.assessment_log_path) if not r.closed
+    ]
+
+    generator = BirdsEyeReportGenerator(
+        current, previous, None, None, period_label, all_results=all_results
+    )
     report = generator.generate(include_synthesis=False)
+
+    # Fetch live issue metadata from GitHub: one bulk paginated call that gives us
+    # current labels (for triage_needed count) and comment counts for all open issues.
+    from app.reports.enrich import _fetch_issue_metadata
+
+    try:
+        issue_meta = _fetch_issue_metadata(repo_config.repo, config.github_token)
+        report.summary.triage_needed = sum(
+            1 for m in issue_meta.values() if "state:triage-needed" in m["labels"]
+        )
+        report.summary.total_open = len(issue_meta)
+        for issue in report.all_issues:
+            meta = issue_meta.get(issue.issue_number)
+            if meta:
+                issue.labels = meta["labels"]
+                issue.comment_count = meta["comment_count"]
+    except Exception:
+        logger.exception("Live issue metadata fetch failed during issues refresh")
 
     enrichment = None
     try:
         from app.sources.enrichment import enrich_issues
 
+        # Only enrich the current-period issues — enrichment makes one GitHub API call
+        # per issue (to check for linked PRs). Historical issues show without PR linkage.
         enrichment = enrich_issues(current, config.github_token)
     except Exception:
         logger.exception("Enrichment failed during issues refresh")

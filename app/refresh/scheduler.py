@@ -114,12 +114,15 @@ class SectionRefresher:
     def _schedule_synthesis(self) -> None:
         report_hour = getattr(self._config, "report_schedule_hour", 9)
         now = datetime.now(timezone.utc)
+        # Find the next Monday at report_hour UTC
+        days_until_monday = (7 - now.weekday()) % 7  # 0 if today is Monday
         target = now.replace(hour=report_hour, minute=0, second=0, microsecond=0)
+        target += timedelta(days=days_until_monday)
         if now >= target:
-            target += timedelta(days=1)
+            target += timedelta(weeks=1)
         delay = (target - now).total_seconds()
         logger.info(
-            "Scheduling synthesis refresh at %s (in %.1f hours)",
+            "Scheduling weekly synthesis refresh at %s (in %.1f hours)",
             target.isoformat(),
             delay / 3600,
         )

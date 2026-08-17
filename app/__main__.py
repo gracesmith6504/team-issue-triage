@@ -1,8 +1,8 @@
 import argparse
 import logging
+import os
 from pathlib import Path
 
-from app.config import load_config
 from app.triage import (
     check_closed_issues,
     run_digest,
@@ -11,6 +11,26 @@ from app.triage import (
     run_review,
     run_triage,
 )
+from app.config import load_config
+
+
+def _bootstrap_gcp_credentials() -> None:
+    """Write GCP SA key from env var JSON to a temp file.
+
+    When running inside an OpenShell sandbox we can't mount volume secrets,
+    so GOOGLE_APPLICATION_CREDENTIALS_JSON carries the key content as a string.
+    This writes it to /tmp/gcp-key.json before the Vertex client initialises.
+    No-op if GOOGLE_APPLICATION_CREDENTIALS already points to a file.
+    """
+    if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+        return
+    json_content = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+    if not json_content:
+        return
+    key_path = "/tmp/gcp-key.json"
+    with open(key_path, "w") as f:
+        f.write(json_content)
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
 
 
 def main():
@@ -47,6 +67,7 @@ def main():
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
     )
 
+    _bootstrap_gcp_credentials()
     config = load_config()
 
     if args.mode == "review":

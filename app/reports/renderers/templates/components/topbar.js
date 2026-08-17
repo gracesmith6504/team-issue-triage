@@ -1,9 +1,3 @@
-var DATE_LABELS = {
-  "7d": "Last 7 Days",
-  "14d": d.summary.period_label,
-  "30d": d.summary.period_label
-};
-
 function buildTopBar() {
   var bar = document.getElementById("topbar");
 

@@ -360,14 +360,30 @@ def run_report(
     resolved_fmt = _detect_format(dest, fmt)
 
     if resolved_fmt == "html":
+        from app.reports.enrich import _fetch_linked_prs_graphql
         from app.reports.renderers.html import render_html
-        from app.sources.enrichment import enrich_issues
+        from app.sources.enrichment import EnrichedIssue
 
         enrichment = {}
         try:
-            enrichment = enrich_issues(current, config.github_token)
+            pr_map = _fetch_linked_prs_graphql(repo_config.repo, config.github_token)
+            enrichment = {
+                issue.issue_number: EnrichedIssue(
+                    result=issue,
+                    has_linked_pr=pr_map.get(issue.issue_number, {}).get(
+                        "has_pr", False
+                    ),
+                    linked_pr_url=pr_map.get(issue.issue_number, {}).get("url"),
+                    linked_pr_draft=pr_map.get(issue.issue_number, {}).get(
+                        "draft", False
+                    ),
+                )
+                for issue in report.all_issues
+            }
         except Exception:
-            logger.exception("Enrichment failed, rendering without enrichment")
+            logger.exception(
+                "Linked PR enrichment failed, rendering without enrichment"
+            )
 
         output = render_html(report, enrichment=enrichment, sparklines=sparklines)
     else:

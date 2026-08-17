@@ -68,13 +68,21 @@ def refresh_issues(config: TriageConfig, cache: SectionCache) -> None:
 
     enrichment = None
     try:
-        from app.sources.enrichment import enrich_issues
+        from app.reports.enrich import _fetch_linked_prs_graphql
+        from app.sources.enrichment import EnrichedIssue
 
-        # Only enrich the current-period issues — enrichment makes one GitHub API call
-        # per issue (to check for linked PRs). Historical issues show without PR linkage.
-        enrichment = enrich_issues(current, config.github_token)
+        pr_map = _fetch_linked_prs_graphql(repo_config.repo, config.github_token)
+        enrichment = {
+            issue.issue_number: EnrichedIssue(
+                result=issue,
+                has_linked_pr=pr_map.get(issue.issue_number, {}).get("has_pr", False),
+                linked_pr_url=pr_map.get(issue.issue_number, {}).get("url"),
+                linked_pr_draft=pr_map.get(issue.issue_number, {}).get("draft", False),
+            )
+            for issue in report.all_issues
+        }
     except Exception:
-        logger.exception("Enrichment failed during issues refresh")
+        logger.exception("Linked PR enrichment failed during issues refresh")
 
     from app.reports.renderers.html import _report_to_dict
 

@@ -58,6 +58,11 @@ def refresh_issues(config: TriageConfig, cache: SectionCache) -> None:
             1 for m in issue_meta.values() if "state:triage-needed" in m["labels"]
         )
         report.summary.total_open = len(issue_meta)
+        # Drop issues no longer open on GitHub — closed since last triage run
+        open_numbers = set(issue_meta.keys())
+        report.all_issues = [
+            i for i in report.all_issues if i.issue_number in open_numbers
+        ]
         for issue in report.all_issues:
             meta = issue_meta.get(issue.issue_number)
             if meta:

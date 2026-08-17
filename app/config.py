@@ -27,6 +27,7 @@ class TriageConfig:
     profile_name: str = "openshell"
     worker_mode: bool = False
     api_token: str | None = None
+    auto_backfill: bool = False
 
 
 def load_config() -> TriageConfig:
@@ -88,4 +89,5 @@ def load_config() -> TriageConfig:
         profile_name=os.environ.get("PROFILE_NAME", "openshell"),
         worker_mode=os.environ.get("WORKER_MODE", "false").lower() == "true",
         api_token=os.environ.get("API_TOKEN"),
+        auto_backfill=os.environ.get("AUTO_BACKFILL", "false").lower() == "true",
     )

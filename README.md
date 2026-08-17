@@ -57,6 +57,21 @@ flowchart LR
 
 **Dashboard** — API-first architecture with independently cached sections. Issues refresh every 2 hours, PR health every 4 hours, LLM synthesis weekly (Monday). If GitHub goes down, the dashboard keeps serving cached data.
 
+## OpenShell Sandbox
+
+The triage worker (the hourly CronJob) runs inside an [OpenShell](https://github.com/NVIDIA/OpenShell) sandbox. OpenShell is a secure runtime that enforces a strict outbound network policy — the worker can only reach the services it actually needs:
+
+| Allowed endpoint | Purpose |
+|---|---|
+| `api.github.com` | Fetch new issues |
+| `inference.local` | LLM calls via the OpenShell gateway |
+| `triage-dashboard` (in-cluster) | POST triage results to the dashboard API |
+| `hooks.slack.com` | Send Slack alerts |
+
+Nothing else — no other internet access, no access to other cluster services. Credentials (GitHub token, API token) are mounted as Kubernetes secrets and never enter the sandbox itself; the LLM key is handled by the gateway.
+
+The dashboard deployment runs outside the sandbox as a normal pod — it doesn't need the restriction because it only serves data it already has and refreshes from GitHub on a slow schedule.
+
 ## Features
 
 | Feature | Description |

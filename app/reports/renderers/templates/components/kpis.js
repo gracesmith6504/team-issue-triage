@@ -1,7 +1,7 @@
 function buildKPIs() {
   var grid = el("div", "kpi-grid");
   var kpis = [
-    {kpiId: "triage-needed", value: d.summary.triage_needed, label: "Issues Needing Triage", hint: "Issues with the state:triage-needed label on GitHub", sub: d.summary.total_open + " total open issues", color: "var(--urgency-high)", spark: d.sparklines.triage, sparkColor: "#e16f24", target: "team-routing", labelFilter: "state:triage-needed"}
+    {kpiId: "triage-needed", value: d.summary.triage_needed, label: "Issues Needing Triage", hint: "Issues with the state:triage-needed label on GitHub", sub: d.summary.total_open + " total open issues", color: "var(--urgency-high)", spark: d.sparklines.triage, sparkColor: "#e16f24", target: "triage-queue"}
   ];
 
   if (d.pr_health) {
@@ -27,10 +27,6 @@ function buildKPIs() {
       '<div class="kpi-sub">' + esc(k.sub) + '</div>';
     if (k.target) {
       card.addEventListener("click", function() {
-        if (k.labelFilter) {
-          _labelFilter = k.labelFilter;
-          applyAllFilters();
-        }
         if (k.tileFilter) {
           _prTileFilter = k.tileFilter;
           document.querySelectorAll("#pr-health .metric-tile").forEach(function(te) {

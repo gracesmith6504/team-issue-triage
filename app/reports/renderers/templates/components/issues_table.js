@@ -50,6 +50,7 @@ function hasActiveFilters() {
 function resetAllFilters() {
   activeTeams = []; activeUrgencies = []; activeArea = ""; searchQuery = "";
   _prTileFilter = null;
+  _lastStuckTitle = null;
   document.querySelectorAll("#pr-health .metric-tile").forEach(function(te) { te.style.outline = ""; });
   state.dateRange = "All";
   state.issueTypeFilter = "Any";
@@ -212,6 +213,7 @@ function filterPRHealth() {
   var ageDist = document.getElementById("pr-age-dist");
   if (is24h) {
     _prTileFilter = null;
+    _lastStuckTitle = null;
     section.querySelectorAll(".metric-tile").forEach(function(te) { te.style.outline = ""; });
   }
   if (tiles) { tiles.style.opacity = is24h ? "0.35" : ""; tiles.style.pointerEvents = is24h ? "none" : ""; }
@@ -310,8 +312,7 @@ function filterPRHealth() {
       };
     }).sort(function(a, b) { return b.days_open - a.days_open; });
     var tileTitleLabels = {all: "All Open PRs", awaiting: "Awaiting Review", stale: "Stale PRs"};
-    var tileTitleEl = document.getElementById("neglected-title");
-    if (tileTitleEl) tileTitleEl.innerHTML = tileTitleLabels[_prTileFilter] + ' <span style="color:var(--text-dim);font-weight:400;">(' + tileFormatted.length + ' total)</span>';
+    _lastStuckTitle = tileTitleLabels[_prTileFilter] + ' <span style="color:var(--text-dim);font-weight:400;">(' + tileFormatted.length + ' total)</span>';
     _renderStuckPRs(tileFormatted, tileFormatted.length, null);
     return;
   }
@@ -404,6 +405,7 @@ function filterPRHealth() {
       author_pinged_days: authorPingedDays
     };
   });
+  _lastStuckTitle = null;
   _renderStuckPRs(neglected, totalNeglected, NEGLECT_DAYS);
 }
 

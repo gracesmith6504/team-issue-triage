@@ -105,13 +105,7 @@ function applyAllFilters() {
   }
 
   var banner = document.getElementById("filter-banner");
-  if (banner) {
-    if (hasActiveFilters() || _prTileFilter) {
-      banner.classList.add("visible");
-    } else {
-      banner.classList.remove("visible");
-    }
-  }
+  if (banner) banner.classList.remove("visible");
 
   _updateTimeFilterNote();
 }

@@ -1,5 +1,5 @@
-var _tqFilterRecent = false;
 var _tqFilterHigh = false;
+var _tqSortKey = "default"; // "default" | "age_asc" | "age_desc" | "team_asc" | "team_desc"
 var _TQ_URGENCY_SCORE = {critical: 3, high: 2, medium: 1, low: 0};
 var _TQ_VISIBLE = 5;
 
@@ -9,6 +9,10 @@ function _isTriage(iss) {
 
 function _sortTQ(issues) {
   return issues.slice().sort(function(a, b) {
+    if (_tqSortKey === "age_desc") return (b.days_open || 0) - (a.days_open || 0);
+    if (_tqSortKey === "age_asc")  return (a.days_open || 0) - (b.days_open || 0);
+    if (_tqSortKey === "team_asc") return (a.primary_team || "").localeCompare(b.primary_team || "");
+    if (_tqSortKey === "team_desc") return (b.primary_team || "").localeCompare(a.primary_team || "");
     var va = _TQ_URGENCY_SCORE[a.urgency] !== undefined ? _TQ_URGENCY_SCORE[a.urgency] : -1;
     var vb = _TQ_URGENCY_SCORE[b.urgency] !== undefined ? _TQ_URGENCY_SCORE[b.urgency] : -1;
     if (va !== vb) return vb - va;
@@ -20,9 +24,19 @@ function _updateTQHeaders() {
   var thead = document.querySelector("#triage-queue .data-table thead");
   if (!thead) return;
   var thU = thead.querySelector("th[data-filter='urgency']");
-  var thA = thead.querySelector("th[data-filter='age']");
+  var thA = thead.querySelector("th[data-sort='age']");
+  var thT = thead.querySelector("th[data-sort='team']");
   if (thU) thU.style.color = _tqFilterHigh ? "var(--accent)" : "";
-  if (thA) thA.style.color = _tqFilterRecent ? "var(--accent)" : "";
+  if (thA) {
+    var ageActive = _tqSortKey === "age_asc" || _tqSortKey === "age_desc";
+    thA.style.color = ageActive ? "var(--accent)" : "";
+    thA.textContent = "Age" + (_tqSortKey === "age_asc" ? " ↑" : _tqSortKey === "age_desc" ? " ↓" : "");
+  }
+  if (thT) {
+    var teamActive = _tqSortKey === "team_asc" || _tqSortKey === "team_desc";
+    thT.style.color = teamActive ? "var(--accent)" : "";
+    thT.textContent = "Team" + (_tqSortKey === "team_asc" ? " ↑" : _tqSortKey === "team_desc" ? " ↓" : "");
+  }
 }
 
 function _tqSnippet(text) {
@@ -86,7 +100,6 @@ function _renderTQRows(triageIssues) {
 function filterTriageQueue(filtered) {
   var triageIssues = filtered.filter(_isTriage);
   if (_tqFilterHigh) triageIssues = triageIssues.filter(function(iss) { return iss.urgency === "critical" || iss.urgency === "high"; });
-  if (_tqFilterRecent) triageIssues = triageIssues.filter(function(iss) { return (iss.days_open || 0) <= 7; });
   _renderTQRows(triageIssues);
 }
 
@@ -108,8 +121,8 @@ function buildTriageQueue() {
     '<th data-filter="urgency" style="cursor:pointer;user-select:none;width:90px">Urgency</th>' +
     '<th style="width:60px">#</th>' +
     '<th>Title</th>' +
-    '<th style="width:110px">Team</th>' +
-    '<th data-filter="age" style="cursor:pointer;user-select:none;width:60px">Age</th>' +
+    '<th data-sort="team" style="cursor:pointer;user-select:none;width:110px">Team</th>' +
+    '<th data-sort="age" style="cursor:pointer;user-select:none;width:60px">Age</th>' +
     '<th>Summary</th>' +
     '</tr></thead>' +
     '<tbody id="triage-queue-tbody"></tbody>';
@@ -118,8 +131,12 @@ function buildTriageQueue() {
     _tqFilterHigh = !_tqFilterHigh;
     filterTriageQueue(getFilteredIssues());
   });
-  table.querySelector("th[data-filter='age']").addEventListener("click", function() {
-    _tqFilterRecent = !_tqFilterRecent;
+  table.querySelector("th[data-sort='age']").addEventListener("click", function() {
+    _tqSortKey = _tqSortKey === "age_desc" ? "age_asc" : "age_desc";
+    filterTriageQueue(getFilteredIssues());
+  });
+  table.querySelector("th[data-sort='team']").addEventListener("click", function() {
+    _tqSortKey = _tqSortKey === "team_asc" ? "team_desc" : "team_asc";
     filterTriageQueue(getFilteredIssues());
   });
 

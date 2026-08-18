@@ -71,6 +71,7 @@ flowchart LR
 
 **Key distinction:** The LLM only runs during triage (classifying new issues) and during weekly synthesis. All other refreshes — issues, PR health, vouch, metrics — are pure GitHub API reads and local computation. The dashboard can serve updated data every 2 hours without any LLM cost.
 
+
 ## OpenShell Sandbox
 
 The triage worker (the hourly CronJob) runs inside an [OpenShell](https://github.com/NVIDIA/OpenShell) sandbox. OpenShell is a secure runtime that enforces a strict outbound network policy — the worker can only reach the services it actually needs:

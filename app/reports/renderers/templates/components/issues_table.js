@@ -51,6 +51,8 @@ function resetAllFilters() {
   activeTeams = []; activeUrgencies = []; activeArea = ""; searchQuery = "";
   _prTileFilter = null;
   _lastStuckTitle = null;
+  _tqFilterHigh = false;
+  _tqSortKey = "default";
   document.querySelectorAll("#pr-health .metric-tile").forEach(function(te) { te.style.outline = ""; });
   state.dateRange = "All";
   state.issueTypeFilter = "Any";

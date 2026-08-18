@@ -1296,9 +1296,9 @@ tr.stuck-hidden { display: none; }
 
     app.appendChild(buildKPIs());
     app.appendChild(buildAlerts());
-    app.appendChild(buildTriageQueue());
     app.appendChild(buildTeamRouting());
     if (d.pr_health) app.appendChild(buildPRHealth());
+    app.appendChild(buildTriageQueue());
     if (d.vouch_status) app.appendChild(buildContributorHealth());
     app.appendChild(buildFooter());
     applyAllFilters();

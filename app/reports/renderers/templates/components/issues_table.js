@@ -208,7 +208,10 @@ function filterPRHealth() {
 
   var tiles = section.querySelector(".metric-tiles");
   var ageDist = document.getElementById("pr-age-dist");
-  if (is24h) _prTileFilter = null;
+  if (is24h) {
+    _prTileFilter = null;
+    section.querySelectorAll(".metric-tile").forEach(function(te) { te.style.outline = ""; });
+  }
   if (tiles) { tiles.style.opacity = is24h ? "0.35" : ""; tiles.style.pointerEvents = is24h ? "none" : ""; }
   if (ageDist) { ageDist.style.opacity = is24h ? "0.35" : ""; ageDist.style.pointerEvents = is24h ? "none" : ""; }
 
@@ -422,7 +425,7 @@ function filterContributorHealth() {
 }
 
 function updateKPIs(filtered) {
-  var issueCard = document.querySelector('.kpi-card[data-target="team-routing"]');
+  var issueCard = document.querySelector('.kpi-card[data-kpi="triage-needed"]');
   if (issueCard) {
     var kpiLabel = issueCard.querySelector(".kpi-label");
     if (hasActiveFilters()) {
@@ -439,7 +442,7 @@ function updateKPIs(filtered) {
   }
 
   if (d.pr_health) {
-    var prCard = document.querySelector('.kpi-card[data-target="pr-health"]');
+    var prCard = document.querySelector('.kpi-card[data-kpi="pr-health"]');
     if (prCard) {
       var prFiltered = _getFilteredPRSummaries();
       var awaitingReview = prFiltered.filter(function(pr) { return pr.has_requested_reviewers; }).length;
@@ -455,7 +458,7 @@ function updateKPIs(filtered) {
       }
     }
 
-    var velCard = document.querySelector('.kpi-card[data-target="pr-velocity"]');
+    var velCard = document.querySelector('.kpi-card[data-kpi="pr-velocity"]');
     if (velCard) {
       var mergedDates = d.pr_health.merged_dates || [];
       var now = new Date();
@@ -473,7 +476,7 @@ function updateKPIs(filtered) {
   }
 
   if (d.vouch_status) {
-    var vouchCard = document.querySelector('.kpi-card[data-target="contributor-health"]');
+    var vouchCard = document.querySelector('.kpi-card[data-kpi="contributor-health"]');
     if (vouchCard) {
       var allVouches = d.vouch_status.pending_vouches || [];
       vouchCard.querySelector(".kpi-number").textContent = allVouches.length;

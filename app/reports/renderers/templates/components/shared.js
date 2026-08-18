@@ -47,6 +47,7 @@ state.dateRange = "All";
 state.issueTypeFilter = "Any";
 
 var d;
+var _prTileFilter = null;
 
 function getFilterCutoffMs() {
   if (!state.dateRange || state.dateRange === "All") return null;

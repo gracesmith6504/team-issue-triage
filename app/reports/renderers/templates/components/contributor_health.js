@@ -27,12 +27,18 @@ function _renderVouchList(filteredVouches) {
   if (!list) return;
   var filteredAuthors = {};
   filteredVouches.forEach(function(v) { filteredAuthors[v.author] = true; });
+  list.querySelectorAll(".vouch-row").forEach(function(row) { row.classList.remove("vouch-overflow"); });
   var visibleCount = 0;
   list.querySelectorAll(".vouch-row").forEach(function(row) {
     var author = row.dataset.author;
     if (filteredAuthors[author]) {
       visibleCount++;
-      row.style.display = visibleCount <= VOUCH_INITIAL_SHOW ? "" : "none";
+      if (visibleCount <= VOUCH_INITIAL_SHOW) {
+        row.style.display = "";
+      } else {
+        row.style.display = "none";
+        row.classList.add("vouch-overflow");
+      }
     } else {
       row.style.display = "none";
     }
@@ -44,8 +50,10 @@ function _renderVouchList(filteredVouches) {
     if (totalHidden > 0) {
       viewMore.style.display = "";
       viewMore.textContent = "View " + totalHidden + " more";
+      viewMore.dataset.expanded = "false";
     } else {
       viewMore.style.display = "none";
+      viewMore.dataset.expanded = "false";
     }
   }
 }
@@ -98,7 +106,7 @@ function buildContributorHealth() {
     var isDismissed = state.dismissed.indexOf(v.author) !== -1;
     var row = el("div", "vouch-row" + (isDismissed ? " dismissed" : ""));
     row.dataset.author = v.author;
-    if (idx >= VOUCH_INITIAL_SHOW) row.style.display = "none";
+    if (idx >= VOUCH_INITIAL_SHOW) { row.style.display = "none"; row.classList.add("vouch-overflow"); }
     var waitText = v.wait_days === 0 ? "today" : v.wait_days === 1 ? "1 day" : v.wait_days + " days";
     row.innerHTML =
       '<span class="vouch-author"><a href="https://github.com/' + esc(v.author) + '" target="_blank">@' + esc(v.author) + '</a></span>' +
@@ -117,19 +125,18 @@ function buildContributorHealth() {
   });
   wrap.appendChild(vouchList);
 
-  var vouchExpanded = false;
-  var remaining = allVouches.length - VOUCH_INITIAL_SHOW;
-  if (remaining > 0) {
+  if (vouchList.querySelectorAll(".vouch-overflow").length > 0) {
     var viewMoreLink = el("a");
-    viewMoreLink.textContent = "View " + remaining + " more";
+    viewMoreLink.dataset.expanded = "false";
+    viewMoreLink.textContent = "View " + vouchList.querySelectorAll(".vouch-overflow").length + " more";
     viewMoreLink.style.cssText = "color:var(--accent);cursor:pointer;text-decoration:none;font-size:13px;font-weight:500;display:inline-block;margin-top:6px;";
     viewMoreLink.addEventListener("click", function() {
-      vouchExpanded = !vouchExpanded;
-      var rows = vouchList.querySelectorAll(".vouch-row");
-      rows.forEach(function(r, i) {
-        if (i >= VOUCH_INITIAL_SHOW) r.style.display = vouchExpanded ? "" : "none";
+      var isExpanded = viewMoreLink.dataset.expanded !== "true";
+      viewMoreLink.dataset.expanded = isExpanded ? "true" : "false";
+      vouchList.querySelectorAll(".vouch-overflow").forEach(function(r) {
+        r.style.display = isExpanded ? "" : "none";
       });
-      viewMoreLink.textContent = vouchExpanded ? "Show less" : "View " + remaining + " more";
+      viewMoreLink.textContent = isExpanded ? "Show less" : "View " + vouchList.querySelectorAll(".vouch-overflow").length + " more";
     });
     wrap.appendChild(viewMoreLink);
   }

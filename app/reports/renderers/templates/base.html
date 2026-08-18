@@ -977,7 +977,7 @@ details.section-collapse > summary::after { color: var(--text-dim); }
   border-left-color: #d7dde6;
 }
 .kpi-card:hover::before { opacity: .9; }
-.kpi-card:hover::after {
+.kpi-card[data-target]:hover::after {
   content: 'Jump ↓';
   position: absolute; bottom: 8px; right: 12px;
   font-size: 10px; font-weight: 500; letter-spacing: .02em;
@@ -1122,7 +1122,7 @@ tr.stuck-hidden { display: none; }
   .data-table th { position: static; background: var(--bg-card); }
   .kpi-card { padding: 16px; }
   .kpi-number { font-size: 30px; }
-  .kpi-card:hover::after { display: none; }
+  .kpi-card[data-target]:hover::after { display: none; }
   .team-band-header { padding: 12px 14px; }
 }
 @media (max-width: 480px) {

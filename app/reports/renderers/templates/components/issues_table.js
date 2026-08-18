@@ -21,6 +21,7 @@ function matchesFilters(issue) {
   if (activeTeams.length && activeTeams.indexOf(issue.primary_team) === -1) return false;
   if (activeUrgencies.length && activeUrgencies.indexOf(issue.urgency) === -1) return false;
   if (activeArea && (issue.area || "") !== activeArea) return false;
+  if (_labelFilter && (issue.labels || []).indexOf(_labelFilter) === -1) return false;
 
   if (searchQuery) {
     var q = searchQuery.toLowerCase();
@@ -42,7 +43,7 @@ function getFilteredIssues() {
 }
 
 function hasActiveFilters() {
-  return activeUrgencies.length || searchQuery || activeArea ||
+  return activeUrgencies.length || searchQuery || activeArea || _labelFilter ||
     (state.dateRange && state.dateRange !== "All") ||
     (state.issueTypeFilter && state.issueTypeFilter !== "Any");
 }
@@ -51,6 +52,7 @@ function resetAllFilters() {
   activeTeams = []; activeUrgencies = []; activeArea = ""; searchQuery = "";
   _prTileFilter = null;
   _lastStuckTitle = null;
+  _labelFilter = null;
   document.querySelectorAll("#pr-health .metric-tile").forEach(function(te) { te.style.outline = ""; });
   state.dateRange = "All";
   state.issueTypeFilter = "Any";

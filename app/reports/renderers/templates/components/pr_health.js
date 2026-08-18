@@ -1,4 +1,4 @@
-var _lastStuckPRs = null, _lastStuckTotal = null, _lastNeglectDays = null;
+var _lastStuckPRs = null, _lastStuckTotal = null, _lastNeglectDays = null, _lastStuckTitle = null;
 var _prSortCol = "days_open", _prSortDir = -1;
 
 function _sortPRs(prs) {
@@ -111,8 +111,12 @@ function _renderStuckPRs(stuckPrs, totalCount, neglectDays) {
   var nd = neglectDays || 7;
   var titleEl = document.getElementById("neglected-title");
   if (titleEl) {
-    var countText = totalCount ? ' <span style="color:var(--text-dim);font-weight:400;">(' + totalCount + ' total)</span>' : '';
-    titleEl.innerHTML = 'Neglected PRs' + countText + ' <span style="color:var(--text-dim);font-weight:400;">- no human review or comment for ' + nd + '+ days</span>';
+    if (_lastStuckTitle) {
+      titleEl.innerHTML = _lastStuckTitle;
+    } else {
+      var countText = totalCount ? ' <span style="color:var(--text-dim);font-weight:400;">(' + totalCount + ' total)</span>' : '';
+      titleEl.innerHTML = 'Neglected PRs' + countText + ' <span style="color:var(--text-dim);font-weight:400;">- no human review or comment for ' + nd + '+ days</span>';
+    }
   }
 
   if (stuckPrs.length === 0) {

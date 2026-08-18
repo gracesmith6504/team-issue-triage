@@ -1,7 +1,9 @@
 var _tqSortCol = "urgency";
 var _tqSortDir = -1;
 var _TQ_URGENCY_SCORE = {critical: 3, high: 2, medium: 1, low: 0};
-var _TQ_VISIBLE = 10;
+var _TQ_VISIBLE = 5;
+var _tqFilterRecent = false;
+var _tqFilterHigh = false;
 
 function _isTriage(iss) {
   return (iss.labels || []).indexOf("state:triage-needed") !== -1;
@@ -95,7 +97,10 @@ function _renderTQRows(triageIssues) {
 }
 
 function filterTriageQueue(filtered) {
-  _renderTQRows(filtered.filter(_isTriage));
+  var triageIssues = filtered.filter(_isTriage);
+  if (_tqFilterRecent) triageIssues = triageIssues.filter(function(iss) { return (iss.days_open || 0) <= 7; });
+  if (_tqFilterHigh) triageIssues = triageIssues.filter(function(iss) { return iss.urgency === "critical" || iss.urgency === "high"; });
+  _renderTQRows(triageIssues);
 }
 
 function buildTriageQueue() {
@@ -108,6 +113,32 @@ function buildTriageQueue() {
   var summary = el("summary");
   summary.innerHTML = '<div class="section-title">Triage Queue <span class="count">(...)</span></div>';
   wrap.appendChild(summary);
+
+  var filterBar = el("div");
+  filterBar.style.cssText = "display:flex;gap:6px;padding:8px 0 12px;";
+
+  function _makeTQPill(label, getActive, toggle) {
+    var pill = el("button");
+    pill.textContent = label;
+    function _style() {
+      var on = getActive();
+      pill.style.cssText = "padding:4px 12px;border-radius:20px;border:1px solid " +
+        (on ? "var(--accent)" : "var(--border)") + ";background:" +
+        (on ? "var(--accent)" : "transparent") + ";color:" +
+        (on ? "#fff" : "var(--text-muted)") + ";cursor:pointer;font-size:12px;font-weight:500;transition:all .15s;";
+    }
+    _style();
+    pill.addEventListener("click", function() {
+      toggle();
+      _style();
+      filterTriageQueue(getFilteredIssues());
+    });
+    return pill;
+  }
+
+  filterBar.appendChild(_makeTQPill("Recent (7d)", function() { return _tqFilterRecent; }, function() { _tqFilterRecent = !_tqFilterRecent; }));
+  filterBar.appendChild(_makeTQPill("High Urgency", function() { return _tqFilterHigh; }, function() { _tqFilterHigh = !_tqFilterHigh; }));
+  wrap.appendChild(filterBar);
 
   var table = document.createElement("table");
   table.className = "data-table";

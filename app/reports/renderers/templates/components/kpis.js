@@ -35,7 +35,11 @@ function buildKPIs() {
           filterPRHealth();
         }
         var target = document.getElementById(k.target);
-        if (target) target.scrollIntoView({behavior: "smooth", block: "start"});
+        if (target) {
+          var rect = target.getBoundingClientRect();
+          var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+          window.scrollTo({top: rect.top + scrollTop - 70, behavior: "smooth"});
+        }
       });
     }
     grid.appendChild(card);

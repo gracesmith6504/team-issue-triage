@@ -1268,6 +1268,7 @@ tr.stuck-hidden { display: none; }
   {% include "components/topbar.js" %}
   {% include "components/kpis.js" %}
   {% include "components/alerts.js" %}
+  {% include "components/triage_queue.js" %}
   {% include "components/team_routing.js" %}
   {% include "components/pr_health.js" %}
   {% include "components/contributor_health.js" %}
@@ -1295,6 +1296,7 @@ tr.stuck-hidden { display: none; }
 
     app.appendChild(buildKPIs());
     app.appendChild(buildAlerts());
+    app.appendChild(buildTriageQueue());
     app.appendChild(buildTeamRouting());
     if (d.pr_health) app.appendChild(buildPRHealth());
     if (d.vouch_status) app.appendChild(buildContributorHealth());

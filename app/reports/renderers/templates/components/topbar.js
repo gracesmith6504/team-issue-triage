@@ -1,26 +1,40 @@
+function _timeAgo(isoStr) {
+  if (!isoStr) return "unknown";
+  var mins = Math.round((new Date() - new Date(isoStr)) / 60000);
+  if (mins < 2) return "just now";
+  if (mins < 60) return mins + "m ago";
+  var hrs = Math.round(mins / 60);
+  if (hrs < 24) return hrs + "h ago";
+  var days = Math.round(hrs / 24);
+  return days + "d ago";
+}
+
 function buildTopBar() {
   var bar = document.getElementById("topbar");
 
   var left = el("div", "topbar-left");
 
-  // Format timestamp
-  var lastUpdated = 'Loading...';
-  if (d.generated_at) {
-    try {
-      var date = new Date(d.generated_at);
-      lastUpdated = date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-    } catch (e) {
-      lastUpdated = 'Unknown';
-    }
-  }
+  var sections = (d._meta && d._meta.sections) || {};
+  var issuesMeta = sections["issues"];
+  var freshnessLabel = issuesMeta
+    ? "Issues: " + _timeAgo(issuesMeta.generated_at)
+    : (d.generated_at ? "Updated: " + _timeAgo(d.generated_at) : "Loading...");
 
-  left.innerHTML = '<a href="https://github.com/NVIDIA/OpenShell" target="_blank" class="topbar-title">OpenShell Overview</a><span class="topbar-period">Last updated: ' + lastUpdated + '</span>';
+  var SECTION_LABELS = {
+    "issues": "Issues", "pr_health": "PR Health",
+    "vouch": "Vouches", "synthesis": "Summaries", "metrics": "Metrics"
+  };
+  var tooltipRows = Object.keys(SECTION_LABELS).filter(function(k) { return sections[k]; }).map(function(k) {
+    return '<div style="display:flex;justify-content:space-between;gap:20px">' +
+      '<span>' + SECTION_LABELS[k] + '</span><span style="opacity:0.75">' + _timeAgo(sections[k].generated_at) + '</span></div>';
+  }).join("");
+
+  var hintMarkup = tooltipRows
+    ? '<span class="hint-wrap"><span class="hint-trigger">i</span><span class="hint-popup hint-popup-down">' + tooltipRows + '</span></span>'
+    : "";
+
+  left.innerHTML = '<a href="https://github.com/NVIDIA/OpenShell" target="_blank" class="topbar-title">OpenShell Overview</a>' +
+    '<span class="topbar-period">' + freshnessLabel + hintMarkup + '</span>';
   bar.appendChild(left);
 
   var center = el("div", "topbar-center");

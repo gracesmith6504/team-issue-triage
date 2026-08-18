@@ -128,6 +128,9 @@ class SectionRefresher:
         )
         self._schedule("synthesis", self._refresh_synthesis, int(delay))
 
+    def refresh_issues_now(self) -> None:
+        self._run_one_shot("issues-on-demand", self._do_refresh_issues)
+
     def refresh_all_now(self) -> None:
         self._run_one_shot("issues", self._do_refresh_issues)
         self._run_one_shot("metrics", self._do_refresh_metrics)

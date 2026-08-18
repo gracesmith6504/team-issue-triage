@@ -1,9 +1,7 @@
-var _tqSortCol = "urgency";
-var _tqSortDir = -1;
-var _TQ_URGENCY_SCORE = {critical: 3, high: 2, medium: 1, low: 0};
-var _TQ_VISIBLE = 5;
 var _tqFilterRecent = false;
 var _tqFilterHigh = false;
+var _TQ_URGENCY_SCORE = {critical: 3, high: 2, medium: 1, low: 0};
+var _TQ_VISIBLE = 5;
 
 function _isTriage(iss) {
   return (iss.labels || []).indexOf("state:triage-needed") !== -1;
@@ -11,28 +9,20 @@ function _isTriage(iss) {
 
 function _sortTQ(issues) {
   return issues.slice().sort(function(a, b) {
-    var va, vb;
-    if (_tqSortCol === "urgency") {
-      va = _TQ_URGENCY_SCORE[a.urgency] !== undefined ? _TQ_URGENCY_SCORE[a.urgency] : -1;
-      vb = _TQ_URGENCY_SCORE[b.urgency] !== undefined ? _TQ_URGENCY_SCORE[b.urgency] : -1;
-    } else {
-      va = a[_tqSortCol] !== undefined ? a[_tqSortCol] : 0;
-      vb = b[_tqSortCol] !== undefined ? b[_tqSortCol] : 0;
-    }
-    if (va < vb) return -_tqSortDir;
-    if (va > vb) return _tqSortDir;
-    return 0;
+    var va = _TQ_URGENCY_SCORE[a.urgency] !== undefined ? _TQ_URGENCY_SCORE[a.urgency] : -1;
+    var vb = _TQ_URGENCY_SCORE[b.urgency] !== undefined ? _TQ_URGENCY_SCORE[b.urgency] : -1;
+    if (va !== vb) return vb - va;
+    return (b.days_open || 0) - (a.days_open || 0);
   });
 }
 
-function _updateTQSortHeaders() {
+function _updateTQHeaders() {
   var thead = document.querySelector("#triage-queue .data-table thead");
   if (!thead) return;
-  thead.querySelectorAll("th[data-sort]").forEach(function(th) {
-    var col = th.dataset.sort;
-    var base = col === "urgency" ? "Urgency" : "Age";
-    th.textContent = (_tqSortCol === col) ? base + (_tqSortDir === -1 ? " ↓" : " ↑") : base;
-  });
+  var thU = thead.querySelector("th[data-filter='urgency']");
+  var thA = thead.querySelector("th[data-filter='age']");
+  if (thU) thU.style.color = _tqFilterHigh ? "var(--accent)" : "";
+  if (thA) thA.style.color = _tqFilterRecent ? "var(--accent)" : "";
 }
 
 function _tqSnippet(text) {
@@ -54,11 +44,8 @@ function _renderTQRows(triageIssues) {
   if (titleSpan) titleSpan.textContent = "(" + triageIssues.length + " issues)";
 
   if (triageIssues.length === 0) {
-    if (emptyEl) {
-      emptyEl.style.display = "";
-      emptyEl.textContent = "No issues needing triage in this filter.";
-    }
-    _updateTQSortHeaders();
+    if (emptyEl) { emptyEl.style.display = ""; emptyEl.textContent = "No issues match the current filter."; }
+    _updateTQHeaders();
     return;
   }
   if (emptyEl) emptyEl.style.display = "none";
@@ -77,7 +64,7 @@ function _renderTQRows(triageIssues) {
     tbody.appendChild(tr);
   });
 
-  _updateTQSortHeaders();
+  _updateTQHeaders();
 
   var hiddenCount = sorted.length - _TQ_VISIBLE;
   if (hiddenCount > 0 && moreWrap) {
@@ -98,8 +85,8 @@ function _renderTQRows(triageIssues) {
 
 function filterTriageQueue(filtered) {
   var triageIssues = filtered.filter(_isTriage);
-  if (_tqFilterRecent) triageIssues = triageIssues.filter(function(iss) { return (iss.days_open || 0) <= 7; });
   if (_tqFilterHigh) triageIssues = triageIssues.filter(function(iss) { return iss.urgency === "critical" || iss.urgency === "high"; });
+  if (_tqFilterRecent) triageIssues = triageIssues.filter(function(iss) { return (iss.days_open || 0) <= 7; });
   _renderTQRows(triageIssues);
 }
 
@@ -114,44 +101,26 @@ function buildTriageQueue() {
   summary.innerHTML = '<div class="section-title">Triage Queue <span class="count">(...)</span></div>';
   wrap.appendChild(summary);
 
-  var filterBar = el("div", "seg-group");
-  filterBar.style.cssText = "display:inline-flex;margin:8px 0 12px;";
-
-  function _makeTQPill(label, getActive, toggle) {
-    var pill = el("button", "date-pill" + (getActive() ? " active" : ""));
-    pill.textContent = label;
-    pill.addEventListener("click", function() {
-      toggle();
-      pill.classList.toggle("active", getActive());
-      filterTriageQueue(getFilteredIssues());
-    });
-    return pill;
-  }
-
-  filterBar.appendChild(_makeTQPill("Recent (7d)", function() { return _tqFilterRecent; }, function() { _tqFilterRecent = !_tqFilterRecent; }));
-  filterBar.appendChild(_makeTQPill("High Urgency", function() { return _tqFilterHigh; }, function() { _tqFilterHigh = !_tqFilterHigh; }));
-  wrap.appendChild(filterBar);
-
   var table = document.createElement("table");
   table.className = "data-table";
   table.innerHTML =
     '<thead><tr>' +
-    '<th data-sort="urgency" style="cursor:pointer;user-select:none;width:90px">Urgency ↓</th>' +
+    '<th data-filter="urgency" style="cursor:pointer;user-select:none;width:90px">Urgency</th>' +
     '<th style="width:60px">#</th>' +
     '<th>Title</th>' +
     '<th style="width:110px">Team</th>' +
-    '<th data-sort="days_open" style="cursor:pointer;user-select:none;width:60px">Age</th>' +
+    '<th data-filter="age" style="cursor:pointer;user-select:none;width:60px">Age</th>' +
     '<th>Summary</th>' +
     '</tr></thead>' +
     '<tbody id="triage-queue-tbody"></tbody>';
 
-  table.querySelectorAll("th[data-sort]").forEach(function(th) {
-    th.addEventListener("click", function() {
-      var col = th.dataset.sort;
-      if (_tqSortCol === col) { _tqSortDir = -_tqSortDir; }
-      else { _tqSortCol = col; _tqSortDir = -1; }
-      filterTriageQueue(getFilteredIssues());
-    });
+  table.querySelector("th[data-filter='urgency']").addEventListener("click", function() {
+    _tqFilterHigh = !_tqFilterHigh;
+    filterTriageQueue(getFilteredIssues());
+  });
+  table.querySelector("th[data-filter='age']").addEventListener("click", function() {
+    _tqFilterRecent = !_tqFilterRecent;
+    filterTriageQueue(getFilteredIssues());
   });
 
   wrap.appendChild(table);

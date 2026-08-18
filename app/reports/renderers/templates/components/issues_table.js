@@ -49,6 +49,8 @@ function hasActiveFilters() {
 
 function resetAllFilters() {
   activeTeams = []; activeUrgencies = []; activeArea = ""; searchQuery = "";
+  _prTileFilter = null;
+  document.querySelectorAll("#pr-health .metric-tile").forEach(function(te) { te.style.outline = ""; });
   state.dateRange = "All";
   state.issueTypeFilter = "Any";
   saveState(state);
@@ -103,7 +105,13 @@ function applyAllFilters() {
   }
 
   var banner = document.getElementById("filter-banner");
-  if (banner) banner.classList.remove("visible");
+  if (banner) {
+    if (hasActiveFilters() || _prTileFilter) {
+      banner.classList.add("visible");
+    } else {
+      banner.classList.remove("visible");
+    }
+  }
 
   _updateTimeFilterNote();
 }
@@ -533,6 +541,8 @@ function updateAlerts(filtered) {
       var dotHtml3 = dot3 ? dot3.outerHTML : '';
       var vouchText = '<strong>' + vouchCount + '</strong> contributors waiting for vouch';
       if (longestVouch) vouchText += ' - longest: <a href="' + esc(longestVouch.url) + '" target="_blank">@' + esc(longestVouch.author) + '</a> (' + longestVouch.wait_days + ' days)';
+      var blockedPRs = (d.vouch_status && d.vouch_status.blocked_prs) || [];
+      if (blockedPRs.length) vouchText += ' - <strong>' + blockedPRs.length + '</strong> PR' + (blockedPRs.length > 1 ? 's' : '') + ' blocked';
       if (hasActiveFilters()) vouchText += ' (filtered)';
       vouchAlert.innerHTML = dotHtml3 + vouchText;
     }

@@ -11,7 +11,7 @@ function buildKPIs() {
     kpis.push({kpiId: "contributor-health", value: d.vouch_status.total_pending, label: "Pending Vouches", sub: d.vouch_status.over_30d_count + " waiting over 30 days", color: "var(--status-blocked)", spark: d.sparklines.blocked, sparkColor: "#d1242f", target: "contributor-health"});
   }
   if (d.pr_health) {
-    kpis.push({kpiId: "pr-velocity", value: d.pr_health.merge_velocity, label: "Merged This Week", sub: (d.pr_health.merge_velocity_prev || 0) + " last week", color: "var(--status-healthy)", spark: d.sparklines.velocity, sparkColor: "#1a7f37", target: "pr-velocity"});
+    kpis.push({kpiId: "pr-velocity", value: d.pr_health.merge_velocity, label: "Merged This Week", sub: (d.pr_health.merge_velocity_prev || 0) + " last week", color: "var(--status-healthy)", spark: d.sparklines.velocity, sparkColor: "#1a7f37", target: "pr-health"});
   }
 
   grid.style.gridTemplateColumns = "repeat(" + kpis.length + ", 1fr)";

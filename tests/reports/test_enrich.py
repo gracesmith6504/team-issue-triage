@@ -111,7 +111,6 @@ def _stub_pr_health():
         merge_velocity=2,
         merge_velocity_prev=1,
         avg_review_wait_days=3.5,
-        stuck_prs=[],
         age_distribution={},
     )
 
@@ -174,7 +173,7 @@ def test_enrich_blocked_prs_empty_when_no_overlap():
 
 
 def _stub_pr_health_with_prs():
-    from app.pr_health.models import PRHealthFindings, PRStatus
+    from app.pr_health.models import OpenPRSummary, PRHealthFindings
 
     return PRHealthFindings(
         total_open=2,
@@ -184,19 +183,17 @@ def _stub_pr_health_with_prs():
         merge_velocity=5,
         merge_velocity_prev=3,
         avg_review_wait_days=2.0,
-        stuck_prs=[
-            PRStatus(
+        all_open_pr_summaries=[
+            OpenPRSummary(
                 number=42,
                 title="feat: add widget",
                 url="https://github.com/test/repo/pull/42",
                 author="newcontrib",
-                days_open=10,
-                days_since_author_push=5,
-                days_since_last_review=10,
-                review_count=0,
-                participants=[],
-                last_activity="Author pushed 5d ago, no reviews",
+                created_at="2026-07-01T00:00:00Z",
+                updated_at="2026-07-10T00:00:00Z",
+                has_requested_reviewers=False,
                 is_draft=False,
+                has_gator_label=False,
             ),
         ],
         age_distribution={},

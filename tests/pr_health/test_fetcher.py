@@ -87,7 +87,6 @@ def test_fetch_pr_health_returns_findings(mock_get, mock_dt):
     result = fetch_pr_health("test/repo", "fake-token")
     assert isinstance(result, PRHealthFindings)
     assert result.total_open == 2
-    assert result.stuck_prs == []
 
 
 @patch("app.pr_health.fetcher.datetime")
@@ -139,7 +138,7 @@ def test_merged_dates_populated(mock_get, mock_dt):
 
 @patch("app.pr_health.fetcher.datetime")
 @patch("app.pr_health.fetcher.requests.get")
-def test_stuck_prs_skips_drafts(mock_get, mock_dt):
+def test_draft_prs_excluded_from_enrichment(mock_get, mock_dt):
     _patch_dt(mock_dt)
     draft_pr = _make_pr(1, created_days_ago=30, draft=True)
     mock_get.side_effect = [
@@ -147,65 +146,7 @@ def test_stuck_prs_skips_drafts(mock_get, mock_dt):
         _make_response([]),
     ]
     result = fetch_pr_health("test/repo", "fake-token")
-    assert result.stuck_prs == []
-
-
-@patch("app.pr_health.fetcher.datetime")
-@patch("app.pr_health.fetcher.requests.get")
-def test_stuck_prs_filters_codeowners_from_participants(mock_get, mock_dt):
-    _patch_dt(mock_dt)
-    old_pr = _make_pr(1, created_days_ago=14, author="contributor")
-    codeowner_review = {
-        "user": {"login": "mrunalp"},
-        "submitted_at": (NOW - timedelta(days=2)).isoformat(),
-    }
-    mock_get.side_effect = [
-        _make_response([old_pr]),
-        _make_response([codeowner_review]),
-        _make_response([]),
-        _make_response(
-            [
-                {
-                    "commit": {
-                        "author": {"date": (NOW - timedelta(days=5)).isoformat()}
-                    },
-                    "author": {"login": "contributor"},
-                }
-            ]
-        ),
-        _make_response([]),
-    ]
-    result = fetch_pr_health("test/repo", "fake-token", codeowners=["mrunalp"])
-    assert len(result.stuck_prs) == 1
-    assert "mrunalp" not in result.stuck_prs[0].participants
-    assert result.stuck_prs[0].created_at == old_pr["created_at"]
-
-
-@patch("app.pr_health.fetcher.datetime")
-@patch("app.pr_health.fetcher.requests.get")
-def test_stuck_prs_excludes_bots(mock_get, mock_dt):
-    _patch_dt(mock_dt)
-    old_pr = _make_pr(1, created_days_ago=14, author="contributor")
-    bot_comment = {"user": {"login": "dependabot[bot]"}, "body": "update deps"}
-    mock_get.side_effect = [
-        _make_response([old_pr]),
-        _make_response([]),
-        _make_response([bot_comment]),
-        _make_response(
-            [
-                {
-                    "commit": {
-                        "author": {"date": (NOW - timedelta(days=5)).isoformat()}
-                    },
-                    "author": {"login": "contributor"},
-                }
-            ]
-        ),
-        _make_response([]),
-    ]
-    result = fetch_pr_health("test/repo", "fake-token")
-    assert len(result.stuck_prs) == 1
-    assert "dependabot[bot]" not in result.stuck_prs[0].participants
+    assert result.all_open_pr_summaries[0].is_draft is True
 
 
 @patch("app.pr_health.fetcher.datetime")
@@ -240,7 +181,6 @@ def test_pagination_fetches_page_2(mock_get, mock_dt):
     ]
     result = fetch_pr_health("test/repo", "fake-token")
     assert result.total_open == 101
-    assert mock_get.call_count == 3
 
 
 @patch("app.pr_health.fetcher.datetime")
@@ -263,68 +203,32 @@ def test_api_error_on_velocity_returns_zero(mock_get, mock_dt):
 
 @patch("app.pr_health.fetcher.datetime")
 @patch("app.pr_health.fetcher.requests.get")
-def test_last_activity_includes_comment_date(mock_get, mock_dt):
+def test_last_review_tracked_in_summary(mock_get, mock_dt):
     _patch_dt(mock_dt)
     old_pr = _make_pr(1, created_days_ago=30, author="contributor")
     review = {
         "user": {"login": "reviewer1"},
-        "submitted_at": (NOW - timedelta(days=20)).isoformat(),
+        "submitted_at": (NOW - timedelta(days=3)).isoformat(),
+        "state": "APPROVED",
     }
     comment = {
-        "user": {"login": "reviewer2"},
-        "body": "Please address the feedback",
+        "user": {"login": "reviewer1"},
         "created_at": (NOW - timedelta(days=3)).isoformat(),
     }
-    commit = {
-        "commit": {"author": {"date": (NOW - timedelta(days=25)).isoformat()}},
-        "author": {"login": "contributor"},
-    }
     mock_get.side_effect = [
         _make_response([old_pr]),
         _make_response([review]),
         _make_response([comment]),
-        _make_response([commit]),
         _make_response([]),
     ]
     result = fetch_pr_health("test/repo", "fake-token")
-    assert len(result.stuck_prs) == 1
-    assert "last comment 3d ago" in result.stuck_prs[0].last_activity
+    summary = result.all_open_pr_summaries[0]
+    assert summary.last_review_at != ""
 
 
 @patch("app.pr_health.fetcher.datetime")
 @patch("app.pr_health.fetcher.requests.get")
-def test_last_activity_omits_comment_older_than_review(mock_get, mock_dt):
-    _patch_dt(mock_dt)
-    old_pr = _make_pr(1, created_days_ago=30, author="contributor")
-    review = {
-        "user": {"login": "reviewer1"},
-        "submitted_at": (NOW - timedelta(days=10)).isoformat(),
-    }
-    comment = {
-        "user": {"login": "reviewer2"},
-        "body": "Looks interesting",
-        "created_at": (NOW - timedelta(days=15)).isoformat(),
-    }
-    commit = {
-        "commit": {"author": {"date": (NOW - timedelta(days=20)).isoformat()}},
-        "author": {"login": "contributor"},
-    }
-    mock_get.side_effect = [
-        _make_response([old_pr]),
-        _make_response([review]),
-        _make_response([comment]),
-        _make_response([commit]),
-        _make_response([]),
-    ]
-    result = fetch_pr_health("test/repo", "fake-token")
-    assert len(result.stuck_prs) == 1
-    assert "last comment" not in result.stuck_prs[0].last_activity
-    assert "last review 10d ago" in result.stuck_prs[0].last_activity
-
-
-@patch("app.pr_health.fetcher.datetime")
-@patch("app.pr_health.fetcher.requests.get")
-def test_last_activity_ignores_bot_comments(mock_get, mock_dt):
+def test_bot_comments_excluded_from_participants(mock_get, mock_dt):
     _patch_dt(mock_dt)
     old_pr = _make_pr(1, created_days_ago=30, author="contributor")
     bot_comment = {
@@ -332,17 +236,17 @@ def test_last_activity_ignores_bot_comments(mock_get, mock_dt):
         "body": "This PR is stale",
         "created_at": (NOW - timedelta(days=1)).isoformat(),
     }
-    commit = {
-        "commit": {"author": {"date": (NOW - timedelta(days=25)).isoformat()}},
-        "author": {"login": "contributor"},
+    human_comment = {
+        "user": {"login": "reviewer1"},
+        "created_at": (NOW - timedelta(days=2)).isoformat(),
     }
     mock_get.side_effect = [
         _make_response([old_pr]),
         _make_response([]),
-        _make_response([bot_comment]),
-        _make_response([commit]),
+        _make_response([bot_comment, human_comment]),
         _make_response([]),
     ]
     result = fetch_pr_health("test/repo", "fake-token")
-    assert len(result.stuck_prs) == 1
-    assert "last comment" not in result.stuck_prs[0].last_activity
+    summary = result.all_open_pr_summaries[0]
+    assert "github-actions[bot]" not in summary.participants
+    assert "reviewer1" in summary.participants

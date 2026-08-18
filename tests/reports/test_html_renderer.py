@@ -153,10 +153,10 @@ def test_render_html_returns_valid_html():
     assert "</html>" in html
 
 
-def test_render_html_embeds_report_data():
+def test_render_html_fetches_from_api():
     html = render_html(make_report())
-    assert "REPORT_DATA" in html
-    assert '"new_this_period": 5' in html
+    assert "loadReport" in html
+    assert "/api/v1/report" in html
 
 
 def test_render_html_includes_all_teams():
@@ -165,16 +165,17 @@ def test_render_html_includes_all_teams():
     assert "ai-safety" in html
 
 
-def test_render_html_includes_critical_issues():
+def test_report_to_dict_includes_critical_issues():
     report = make_report(
         critical_list=[
             make_result(2518, "SPIFFE crash", urgency=Urgency.CRITICAL),
             make_result(2520, "sandbox fail", urgency=Urgency.HIGH),
         ]
     )
-    html = render_html(report)
-    assert "2518" in html
-    assert "2520" in html
+    data = _report_to_dict(report)
+    numbers = [i["issue_number"] for i in data["critical_list"]]
+    assert 2518 in numbers
+    assert 2520 in numbers
 
 
 def test_render_html_title():
@@ -182,7 +183,7 @@ def test_render_html_title():
     assert "OpenShell Overview" in html
 
 
-def test_render_html_escapes_script_tags():
+def test_report_to_dict_preserves_special_chars():
     report = make_report(
         critical_list=[
             make_result(
@@ -190,9 +191,8 @@ def test_render_html_escapes_script_tags():
             )
         ]
     )
-    html = render_html(report)
-    assert "</script><script>" not in html
-    assert "\\u003c/script>" in html
+    data = _report_to_dict(report)
+    assert data["critical_list"][0]["issue_title"] == "</script><script>alert(1)</script>"
 
 
 def test_render_html_urgency_badges_in_table():
@@ -243,8 +243,8 @@ def test_render_html_light_theme():
 
 
 def test_render_html_pr_health_absent_when_none():
-    html = render_html(make_report(pr_health=None))
-    assert '"pr_health": null' in html
+    data = _report_to_dict(make_report(pr_health=None))
+    assert data["pr_health"] is None
 
 
 def test_render_html_pr_health_present_when_set():
@@ -256,7 +256,6 @@ def test_render_html_pr_health_present_when_set():
         "merge_velocity": 8,
         "merge_velocity_prev": 6,
         "avg_review_wait_days": 4.2,
-        "stuck_prs": [],
         "age_distribution": {
             "lt_1w": {"count": 10, "label": "< 1 week"},
             "1_2w": {"count": 8, "label": "1-2 weeks"},
@@ -264,14 +263,13 @@ def test_render_html_pr_health_present_when_set():
             "gt_1m": {"count": 12, "label": "> 1 month"},
         },
     }
-    html = render_html(make_report(pr_health=pr_data))
-    assert "PR Health" in html
-    assert '"total_open": 42' in html
+    data = _report_to_dict(make_report(pr_health=pr_data))
+    assert data["pr_health"]["total_open"] == 42
 
 
 def test_render_html_vouch_absent_when_none():
-    html = render_html(make_report(vouch_status=None))
-    assert '"vouch_status": null' in html
+    data = _report_to_dict(make_report(vouch_status=None))
+    assert data["vouch_status"] is None
 
 
 def test_render_html_vouch_present_when_set():
@@ -309,7 +307,7 @@ def _make_enrichment(number, has_linked_pr=False):
 def test_render_html_without_enrichment_unchanged():
     html = render_html(make_report())
     assert "<!DOCTYPE html>" in html
-    assert "REPORT_DATA" in html
+    assert "loadReport" in html
 
 
 def test_render_html_with_enrichment_adds_pr_field():
@@ -317,8 +315,8 @@ def test_render_html_with_enrichment_adds_pr_field():
     report = make_report(
         all_issues=[make_result(1, "test issue", urgency=Urgency.CRITICAL)]
     )
-    html = render_html(report, enrichment=enrichment)
-    assert '"has_linked_pr": true' in html
+    data = _report_to_dict(report, enrichment=enrichment)
+    assert data["all_issues"][0]["has_linked_pr"] is True
 
 
 def test_render_html_shows_unassigned_for_none_team():
@@ -476,7 +474,7 @@ def test_render_html_end_to_end_structure():
     html = render_html(make_report(pr_health=pr_data, vouch_status=vouch_data))
 
     assert "<!DOCTYPE html>" in html
-    assert "REPORT_DATA" in html
+    assert "loadReport" in html
     assert "buildTopBar" in html
     assert "buildKPIs" in html
     assert "buildAlerts" in html

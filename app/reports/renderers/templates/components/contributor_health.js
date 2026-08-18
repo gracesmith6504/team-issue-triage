@@ -1,3 +1,5 @@
+var _currentFilteredVouches = null;
+
 function _countVouchedInRange() {
   var completed = (d.vouch_status && d.vouch_status.completed_vouches) || [];
   var cutoffMs = getFilterCutoffMs();
@@ -22,34 +24,39 @@ function _renderContribTiles(totalPending, longestWait) {
 }
 
 function _renderVouchList(filteredVouches) {
+  _currentFilteredVouches = filteredVouches;
   var VOUCH_INITIAL_SHOW = 5;
   var list = document.getElementById("vouch-list-container");
+  var viewMore = document.getElementById("vouch-view-more");
   if (!list) return;
+
   var filteredAuthors = {};
   filteredVouches.forEach(function(v) { filteredAuthors[v.author] = true; });
+
   list.querySelectorAll(".vouch-row").forEach(function(row) { row.classList.remove("vouch-overflow"); });
-  var visibleCount = 0;
+
+  var shown = 0;
   list.querySelectorAll(".vouch-row").forEach(function(row) {
     var author = row.dataset.author;
-    if (filteredAuthors[author]) {
-      visibleCount++;
-      if (visibleCount <= VOUCH_INITIAL_SHOW) {
-        row.style.display = "";
-      } else {
-        row.style.display = "none";
-        row.classList.add("vouch-overflow");
-      }
+    var isDismissed = row.classList.contains("dismissed");
+    if (isDismissed || !filteredAuthors[author]) {
+      row.style.display = "none";
+      return;
+    }
+    shown++;
+    if (shown <= VOUCH_INITIAL_SHOW) {
+      row.style.display = "";
     } else {
       row.style.display = "none";
+      row.classList.add("vouch-overflow");
     }
   });
-  var wrap = list.closest(".section-collapse") || list.parentElement;
-  var viewMore = wrap.querySelector("a[style*='cursor:pointer']");
+
   if (viewMore) {
-    var totalHidden = visibleCount - VOUCH_INITIAL_SHOW;
-    if (totalHidden > 0) {
+    var hiddenCount = shown - VOUCH_INITIAL_SHOW;
+    if (hiddenCount > 0) {
       viewMore.style.display = "";
-      viewMore.textContent = "View " + totalHidden + " more";
+      viewMore.textContent = "View " + hiddenCount + " more";
       viewMore.dataset.expanded = "false";
     } else {
       viewMore.style.display = "none";
@@ -102,11 +109,23 @@ function buildContributorHealth() {
   var vouchList = el("div", "vouch-list");
   vouchList.id = "vouch-list-container";
   var allVouches = d.vouch_status.pending_vouches;
-  allVouches.forEach(function(v, idx) {
+  var nonDismissedIdx = 0;
+
+  allVouches.forEach(function(v) {
     var isDismissed = state.dismissed.indexOf(v.author) !== -1;
     var row = el("div", "vouch-row" + (isDismissed ? " dismissed" : ""));
     row.dataset.author = v.author;
-    if (idx >= VOUCH_INITIAL_SHOW) { row.style.display = "none"; row.classList.add("vouch-overflow"); }
+
+    if (isDismissed) {
+      row.style.display = "none";
+    } else {
+      if (nonDismissedIdx >= VOUCH_INITIAL_SHOW) {
+        row.style.display = "none";
+        row.classList.add("vouch-overflow");
+      }
+      nonDismissedIdx++;
+    }
+
     var waitText = v.wait_days === 0 ? "today" : v.wait_days === 1 ? "1 day" : v.wait_days + " days";
     row.innerHTML =
       '<span class="vouch-author"><a href="https://github.com/' + esc(v.author) + '" target="_blank">@' + esc(v.author) + '</a></span>' +
@@ -119,16 +138,19 @@ function buildContributorHealth() {
       saveState(state);
       row.classList.add("dismissed");
       updateDismissedCount();
+      if (_currentFilteredVouches) _renderVouchList(_currentFilteredVouches);
     });
     row.appendChild(dismissBtn);
     vouchList.appendChild(row);
   });
   wrap.appendChild(vouchList);
 
-  if (vouchList.querySelectorAll(".vouch-overflow").length > 0) {
+  var initialOverflow = vouchList.querySelectorAll(".vouch-overflow").length;
+  if (initialOverflow > 0) {
     var viewMoreLink = el("a");
+    viewMoreLink.id = "vouch-view-more";
     viewMoreLink.dataset.expanded = "false";
-    viewMoreLink.textContent = "View " + vouchList.querySelectorAll(".vouch-overflow").length + " more";
+    viewMoreLink.textContent = "View " + initialOverflow + " more";
     viewMoreLink.style.cssText = "color:var(--accent);cursor:pointer;text-decoration:none;font-size:13px;font-weight:500;display:inline-block;margin-top:6px;";
     viewMoreLink.addEventListener("click", function() {
       var isExpanded = viewMoreLink.dataset.expanded !== "true";
@@ -136,7 +158,9 @@ function buildContributorHealth() {
       vouchList.querySelectorAll(".vouch-overflow").forEach(function(r) {
         r.style.display = isExpanded ? "" : "none";
       });
-      viewMoreLink.textContent = isExpanded ? "Show less" : "View " + vouchList.querySelectorAll(".vouch-overflow").length + " more";
+      viewMoreLink.textContent = isExpanded
+        ? "Show less"
+        : "View " + vouchList.querySelectorAll(".vouch-overflow").length + " more";
     });
     wrap.appendChild(viewMoreLink);
   }
@@ -150,6 +174,7 @@ function buildContributorHealth() {
     saveState(state);
     vouchList.querySelectorAll(".vouch-row").forEach(function(r) { r.classList.remove("dismissed"); });
     updateDismissedCount();
+    if (_currentFilteredVouches) _renderVouchList(_currentFilteredVouches);
   });
   controls.appendChild(showDismissed);
   wrap.appendChild(controls);

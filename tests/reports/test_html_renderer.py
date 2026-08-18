@@ -192,7 +192,9 @@ def test_report_to_dict_preserves_special_chars():
         ]
     )
     data = _report_to_dict(report)
-    assert data["critical_list"][0]["issue_title"] == "</script><script>alert(1)</script>"
+    assert (
+        data["critical_list"][0]["issue_title"] == "</script><script>alert(1)</script>"
+    )
 
 
 def test_render_html_urgency_badges_in_table():

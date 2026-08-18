@@ -194,7 +194,11 @@ def create_app(config: TriageConfig) -> FastAPI:
         app.state.last_triage = datetime.now(timezone.utc).isoformat()
 
         if saved > 0:
-            section_cache.invalidate(Section.ISSUES)
+            refresher = getattr(app.state, "refresher", None)
+            if refresher:
+                refresher.refresh_issues_now()
+            else:
+                section_cache.invalidate(Section.ISSUES)
 
         return {"saved": saved, "total_submitted": len(results)}
 

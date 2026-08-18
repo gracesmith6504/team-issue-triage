@@ -1,3 +1,26 @@
+var _lastStuckPRs = null, _lastStuckTotal = null, _lastNeglectDays = null;
+var _prSortCol = "days_open", _prSortDir = -1;
+
+function _sortPRs(prs) {
+  if (!_prSortCol) return prs.slice();
+  return prs.slice().sort(function(a, b) {
+    var va = a[_prSortCol], vb = b[_prSortCol];
+    if (va < vb) return -_prSortDir;
+    if (va > vb) return _prSortDir;
+    return 0;
+  });
+}
+
+function _updatePRSortHeaders() {
+  var thead = document.querySelector("#pr-health .data-table thead");
+  if (!thead) return;
+  thead.querySelectorAll("th[data-sort]").forEach(function(th) {
+    var col = th.dataset.sort;
+    var base = col === "number" ? "PR #" : col === "days_open" ? "Age" : "Author";
+    th.textContent = (_prSortCol === col) ? base + (_prSortDir === 1 ? " ↑" : " ↓") : base;
+  });
+}
+
 function gatorBadge(label) {
   if (!label) return '<span class="gator-badge gator-none">—</span>';
   var stage = label.replace('gator:', '');
@@ -75,6 +98,10 @@ function _buildStuckPRRow(pr) {
 }
 
 function _renderStuckPRs(stuckPrs, totalCount, neglectDays) {
+  _lastStuckPRs = stuckPrs;
+  _lastStuckTotal = totalCount;
+  _lastNeglectDays = neglectDays;
+
   var tbody = document.getElementById("pr-stuck-tbody");
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -92,17 +119,19 @@ function _renderStuckPRs(stuckPrs, totalCount, neglectDays) {
     var tr = el("tr");
     tr.innerHTML = '<td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No neglected PRs in this time range</td>';
     tbody.appendChild(tr);
+    _updatePRSortHeaders();
     return;
   }
+  var sorted = _sortPRs(stuckPrs);
   var STUCK_VISIBLE = 5;
-  stuckPrs.forEach(function(pr, i) {
+  sorted.forEach(function(pr, i) {
     var row = _buildStuckPRRow(pr);
     if (i >= STUCK_VISIBLE) row.classList.add("stuck-hidden");
     tbody.appendChild(row);
   });
-  if (stuckPrs.length > STUCK_VISIBLE && moreWrap) {
+  if (sorted.length > STUCK_VISIBLE && moreWrap) {
     var expanded = false;
-    var remaining = stuckPrs.length - STUCK_VISIBLE;
+    var remaining = sorted.length - STUCK_VISIBLE;
     var toggleBtn = el("button", "show-more-btn");
     toggleBtn.textContent = "Show " + remaining + " more";
     toggleBtn.addEventListener("click", function() {
@@ -114,6 +143,7 @@ function _renderStuckPRs(stuckPrs, totalCount, neglectDays) {
     });
     moreWrap.appendChild(toggleBtn);
   }
+  _updatePRSortHeaders();
 }
 
 
@@ -129,14 +159,25 @@ function buildPRHealth() {
 
   var tiles = el("div", "metric-tiles metric-tiles-3");
   var tileData = [
-    {value: d.pr_health.total_open, label: "Open PRs", color: "var(--text-primary)", accent: "var(--border)"},
-    {value: d.pr_health.awaiting_review, label: "Awaiting Review", color: "var(--status-waiting)", accent: "var(--status-waiting)"},
-    {value: d.pr_health.stale_14d, label: "Stale (14d+)", color: "var(--urgency-high)", accent: "var(--urgency-high)", hint: "No updates for 14+ days (adjusted by time filter)"}
+    {value: d.pr_health.total_open, label: "Open PRs", color: "var(--text-primary)", accent: "var(--border)", filterKey: "all"},
+    {value: d.pr_health.awaiting_review, label: "Awaiting Review", color: "var(--status-waiting)", accent: "var(--status-waiting)", filterKey: "awaiting"},
+    {value: d.pr_health.stale_14d, label: "Stale (14d+)", color: "var(--urgency-high)", accent: "var(--urgency-high)", hint: "No updates for 14+ days (adjusted by time filter)", filterKey: "stale"}
   ];
+  var _tileEls = [];
   tileData.forEach(function(t) {
     var tile = el("div", "metric-tile");
     tile.style.borderLeftColor = t.accent;
+    tile.style.cursor = "pointer";
+    tile.dataset.filterKey = t.filterKey;
     tile.innerHTML = '<div class="tile-value" style="color:' + t.color + '">' + t.value + '</div><div class="tile-label">' + esc(t.label) + (t.hint ? hintHTML(t.hint) : '') + '</div>';
+    tile.addEventListener("click", function() {
+      _prTileFilter = (_prTileFilter === t.filterKey) ? null : t.filterKey;
+      _tileEls.forEach(function(te) {
+        te.style.outline = (_prTileFilter && te.dataset.filterKey === _prTileFilter) ? "2px solid " + t.accent : "";
+      });
+      filterPRHealth();
+    });
+    _tileEls.push(tile);
     tiles.appendChild(tile);
   });
   header.appendChild(tiles);
@@ -170,7 +211,19 @@ function buildPRHealth() {
 
   var tableWrap = el("div", "data-table-wrap");
   var table = el("table", "data-table");
-  table.innerHTML = '<thead><tr><th>#</th><th>Title</th><th>Author</th><th>Age</th><th>Last Activity</th><th>Participants</th></tr></thead>';
+  table.innerHTML = '<thead><tr><th data-sort="number" style="cursor:pointer;user-select:none;">PR #</th><th>Title</th><th data-sort="author" style="cursor:pointer;user-select:none;">Author</th><th data-sort="days_open" style="cursor:pointer;user-select:none;">Age ↓</th><th>Last Activity</th><th>Participants</th></tr></thead>';
+  table.querySelectorAll("th[data-sort]").forEach(function(th) {
+    th.addEventListener("click", function() {
+      var col = th.dataset.sort;
+      if (_prSortCol === col) {
+        _prSortDir = -_prSortDir;
+      } else {
+        _prSortCol = col;
+        _prSortDir = -1;
+      }
+      if (_lastStuckPRs) _renderStuckPRs(_lastStuckPRs, _lastStuckTotal, _lastNeglectDays);
+    });
+  });
   var tbody = el("tbody");
   tbody.id = "pr-stuck-tbody";
   table.appendChild(tbody);

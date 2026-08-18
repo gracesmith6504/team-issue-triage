@@ -208,6 +208,7 @@ function filterPRHealth() {
 
   var tiles = section.querySelector(".metric-tiles");
   var ageDist = document.getElementById("pr-age-dist");
+  if (is24h) _prTileFilter = null;
   if (tiles) { tiles.style.opacity = is24h ? "0.35" : ""; tiles.style.pointerEvents = is24h ? "none" : ""; }
   if (ageDist) { ageDist.style.opacity = is24h ? "0.35" : ""; ageDist.style.pointerEvents = is24h ? "none" : ""; }
 
@@ -269,6 +270,45 @@ function filterPRHealth() {
       });
     }
     _renderAgeDistribution(ageBuckets);
+  }
+
+  if (_prTileFilter) {
+    var tileNow = Date.now();
+    var tileBase = _getFilteredPRSummaries();
+    var tileSubset;
+    if (_prTileFilter === "all") {
+      tileSubset = tileBase.filter(function(pr) { return !pr.is_draft; });
+    } else if (_prTileFilter === "awaiting") {
+      tileSubset = tileBase.filter(function(pr) { return pr.has_requested_reviewers && !pr.is_draft; });
+    } else if (_prTileFilter === "stale") {
+      var staleDaysT = _staleDaysThreshold() || 14;
+      tileSubset = tileBase.filter(function(pr) {
+        return !pr.is_draft && (tileNow - new Date(pr.updated_at).getTime()) / 86400000 >= staleDaysT;
+      });
+    } else {
+      tileSubset = [];
+    }
+    var tileFormatted = tileSubset.map(function(pr) {
+      var daysOpen = Math.floor((tileNow - new Date(pr.created_at).getTime()) / 86400000);
+      var daysSinceUpdate = pr.updated_at ? Math.floor((tileNow - new Date(pr.updated_at).getTime()) / 86400000) : daysOpen;
+      return {
+        number: pr.number,
+        title: pr.title || "PR #" + pr.number,
+        url: pr.url || "#",
+        author: pr.author || "",
+        author_association: pr.author_association || "NONE",
+        days_open: daysOpen,
+        last_activity: daysSinceUpdate + "d ago",
+        participants: pr.participants || [],
+        author_pinged: false,
+        author_pinged_days: 0
+      };
+    }).sort(function(a, b) { return b.days_open - a.days_open; });
+    var tileTitleLabels = {all: "All Open PRs", awaiting: "Awaiting Review", stale: "Stale PRs"};
+    var tileTitleEl = document.getElementById("neglected-title");
+    if (tileTitleEl) tileTitleEl.innerHTML = tileTitleLabels[_prTileFilter] + ' <span style="color:var(--text-dim);font-weight:400;">(' + tileFormatted.length + ' total)</span>';
+    _renderStuckPRs(tileFormatted, tileFormatted.length, null);
+    return;
   }
 
   var nowMs = Date.now();

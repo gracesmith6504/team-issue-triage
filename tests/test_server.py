@@ -31,7 +31,7 @@ def config(tmp_path):
 
 @pytest.fixture()
 def app(config):
-    with patch("app.server._schedule_cycle"):
+    with patch("app.refresh.scheduler.SectionRefresher"):
         from app.server import create_app
 
         yield create_app(config)
@@ -65,8 +65,8 @@ def test_dashboard_before_triage(client):
     resp = client.get("/")
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
-    assert "Triage in progress" in resp.text
-    assert 'http-equiv="refresh"' in resp.text
+    assert "<!DOCTYPE html>" in resp.text
+    assert "loadReport" in resp.text
 
 
 def test_dashboard_serves_cached_html(app, client):
@@ -79,8 +79,7 @@ def test_dashboard_serves_cached_html(app, client):
 def test_refresh_when_not_running(app, client):
     app.state.last_triage = "2026-08-04T12:00:00+00:00"
     app.state.cycle_lock = threading.Lock()
-    with patch("app.server._run_report_cycle"):
-        resp = client.post("/api/refresh")
+    resp = client.post("/api/refresh")
     assert resp.status_code == 202
 
 
@@ -90,9 +89,9 @@ def test_refresh_cooldown(app, client):
     assert resp.status_code == 429
 
 
-def test_get_state_unauthorized(client):
+def test_get_state_unauthenticated(client):
     resp = client.get("/api/state")
-    assert resp.status_code == 401
+    assert resp.status_code == 200
 
 
 def test_get_state_with_auth(client):

@@ -49,11 +49,20 @@ def test_enrich_detects_linked_pr(mock_get):
         {"event": "commented"},
         {
             "event": "cross-referenced",
-            "source": {"issue": {"pull_request": {"url": "https://..."}}},
+            "source": {
+                "issue": {
+                    "pull_request": {"merged_at": None},
+                    "html_url": "https://github.com/NVIDIA/OpenShell/pull/123",
+                }
+            },
         },
     ]
 
-    mock_get.return_value = timeline_resp
+    pr_resp = MagicMock()
+    pr_resp.status_code = 200
+    pr_resp.json.return_value = {"draft": False}
+
+    mock_get.side_effect = [timeline_resp, pr_resp]
 
     enriched = enrich_issues([_make_result(10)], "ghp_test")
     assert enriched[10].has_linked_pr is True

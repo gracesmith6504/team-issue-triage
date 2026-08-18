@@ -114,23 +114,15 @@ function buildTriageQueue() {
   summary.innerHTML = '<div class="section-title">Triage Queue <span class="count">(...)</span></div>';
   wrap.appendChild(summary);
 
-  var filterBar = el("div");
-  filterBar.style.cssText = "display:flex;gap:6px;padding:8px 0 12px;";
+  var filterBar = el("div", "seg-group");
+  filterBar.style.cssText = "display:inline-flex;margin:8px 0 12px;";
 
   function _makeTQPill(label, getActive, toggle) {
-    var pill = el("button");
+    var pill = el("button", "date-pill" + (getActive() ? " active" : ""));
     pill.textContent = label;
-    function _style() {
-      var on = getActive();
-      pill.style.cssText = "padding:4px 12px;border-radius:20px;border:1px solid " +
-        (on ? "var(--accent)" : "var(--border)") + ";background:" +
-        (on ? "var(--accent)" : "transparent") + ";color:" +
-        (on ? "#fff" : "var(--text-muted)") + ";cursor:pointer;font-size:12px;font-weight:500;transition:all .15s;";
-    }
-    _style();
     pill.addEventListener("click", function() {
       toggle();
-      _style();
+      pill.classList.toggle("active", getActive());
       filterTriageQueue(getFilteredIssues());
     });
     return pill;

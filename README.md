@@ -57,6 +57,20 @@ flowchart LR
 
 **Dashboard** — API-first architecture with independently cached sections. Issues refresh every 2 hours, PR health every 4 hours, LLM synthesis weekly (Monday). If GitHub goes down, the dashboard keeps serving cached data.
 
+## Schedule
+
+| Component | Trigger | Frequency | Uses LLM? |
+|-----------|---------|-----------|-----------|
+| Issue triage | Hourly CronJob | Every hour (new issues only) | Yes — 1 call per new issue |
+| Issues section refresh | Background thread | Every 2 hours | No — reads assessment log + GitHub API |
+| PR health refresh | Background thread | Every 4 hours | No — GitHub API only |
+| Vouch tracking refresh | Background thread | Every 4 hours | No — GitHub GraphQL only |
+| Metrics refresh | Background thread | Every hour | No — computed from existing data |
+| AI synthesis | Background thread | Weekly (Monday, 9 UTC) | Yes — 1 call per team + 1 narrative call |
+| Daily digest | Digest CronJob | Daily (configurable) | No — formats existing triage results |
+
+**Key distinction:** The LLM only runs during triage (classifying new issues) and during weekly synthesis. All other refreshes — issues, PR health, vouch, metrics — are pure GitHub API reads and local computation. The dashboard can serve updated data every 2 hours without any LLM cost.
+
 ## OpenShell Sandbox
 
 The triage worker (the hourly CronJob) runs inside an [OpenShell](https://github.com/NVIDIA/OpenShell) sandbox. OpenShell is a secure runtime that enforces a strict outbound network policy — the worker can only reach the services it actually needs:
@@ -81,7 +95,7 @@ The dashboard deployment runs outside the sandbox as a normal pod — it doesn't
 | **Live dashboard** | KPIs, team breakdown, area heatmap, duplicate detection, trend sparklines |
 | **PR health** | Open PR count, age distribution, neglected PRs, merge velocity, review wait times |
 | **Vouch tracking** | Pending/completed contributor vouches, blocked PRs, response times |
-| **AI synthesis** | Per-team focus summaries, action items, and executive narrative — generated daily by LLM |
+| **AI synthesis** | Per-team focus summaries, action items, and executive narrative — generated weekly (Monday) by LLM |
 | **Slack notifications** | Immediate alerts for critical/high issues, daily digest for medium/low |
 | **Profile system** | YAML-based team definitions with areas, urgency overrides, few-shot examples, and notification config |
 | **API-first** | All data available via REST API — integrate with Slack bots, CLI tools, CI pipelines, Grafana |
@@ -103,7 +117,8 @@ export LLM_PROVIDER="vertex"              # or "anthropic"
 export VERTEX_PROJECT_ID="your-project"   # for Vertex AI
 export WATCH_REPOS="your-org/your-repo"
 
-# Start the dashboard (runs triage on a background schedule)
+# Start the dashboard (serves cached data, runs background section refreshers)
+# NOTE: this does NOT triage new issues — run --mode triage or deploy the CronJob for that
 python -m app --mode serve
 ```
 
@@ -234,10 +249,17 @@ The dashboard Deployment serves the UI and API on port 8080. The CronJob runs ho
 | `k8s/deployment.yaml` | Dashboard Deployment (FastAPI + background refresh) |
 | `k8s/service.yaml` | ClusterIP Service |
 | `k8s/route.yaml` | OpenShift Route with edge TLS |
-| `k8s/cronjob-triage.yaml` | Hourly triage CronJob (worker mode) |
+| `k8s/cronjob-triage.yaml` | Hourly triage CronJob (plain pod, `team-issue-triage` namespace) |
+| `k8s/cronjob-triage-sandbox.yaml` | Hourly triage CronJob running inside an OpenShell sandbox (`openshell` namespace) |
+| `k8s/cronjob-digest.yaml` | Daily Slack digest CronJob |
+| `k8s/cronjob-refresh.yaml` | Weekly refresh CronJob |
 | `k8s/pvc.yaml` | Persistent volume for state and cache |
 | `k8s/configmap.yaml` | Non-secret configuration (PROFILE_NAME, WATCH_REPOS, etc.) |
-| `k8s/kustomization.yaml` | Kustomize entrypoint |
+| `k8s/sandbox-policy-configmap.yaml` | OpenShell egress policy ConfigMap (allowed endpoints) |
+| `k8s/rbac-triage.yaml` | RBAC for the sandbox ServiceAccount |
+| `k8s/kustomization.yaml` | Kustomize entrypoint (standard deployment) |
+| `k8s/sandbox/kustomization.yaml` | Kustomize overlay for sandbox deployment |
+| `k8s/launcher/Containerfile` | Build file for the sandbox launcher container |
 
 </details>
 
@@ -357,8 +379,11 @@ make build     # Build container image
 | `METRICS_PATH` | `/data/metrics.jsonl` | Historical metrics snapshots |
 | `PR_HEALTH_ENABLED` | `true` | Enable PR health tracking |
 | `VOUCH_TRACKING_ENABLED` | `true` | Enable vouch status monitoring |
-| `REPORT_SCHEDULE_HOUR` | `9` | Hour (UTC) for daily synthesis |
+| `REPORT_SCHEDULE_HOUR` | `9` | Hour (UTC) for weekly synthesis (runs Monday) |
 | `AUTO_BACKFILL` | `false` | Set to `true` to automatically triage all existing open issues on first startup (when no assessment log exists). Useful for new deployments. |
+| `WORKER_MODE` | `false` | Set to `true` to disable background scheduler in serve mode (used when the worker CronJob handles triage separately) |
+| `GOOGLE_APPLICATION_CREDENTIALS_JSON` | — | GCP service account key as a JSON string. Use instead of mounting a key file — required when running inside an OpenShell sandbox (can't mount volumes). Writes key to `/tmp/gcp-key.json` on startup. |
+| `REPORT_OUTPUT_PATH` | — | File path for `--mode report --output` — writes HTML or markdown report to this path instead of stdout |
 | `SLACK_WEBHOOK_*` | — | Per-team Slack webhooks (referenced from team YAMLs) |
 
 </details>

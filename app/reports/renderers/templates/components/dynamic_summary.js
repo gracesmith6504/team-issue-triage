@@ -397,14 +397,9 @@ function updateTeamFocus(band, teamId, filteredIssues) {
   var existingDynamic = band.querySelector('[data-dynamic-summary="' + teamId + '"]');
   var originalFocus = band.querySelector('.focus:not(.focus-dynamic)');
 
-  if (!hasActiveFilters()) {
-    if (existingDynamic) existingDynamic.remove();
-    if (originalFocus) {
-      originalFocus.style.display = "";
-    }
-    return;
-  }
-
+  // Always hide the LLM synthesis and show the dynamic summary.
+  // The LLM synthesis only covers the last lookback window, so it is misleading
+  // on other tabs (e.g. "All" shows 78 issues but synthesis only saw 4).
   if (originalFocus) {
     originalFocus.style.display = "none";
   }

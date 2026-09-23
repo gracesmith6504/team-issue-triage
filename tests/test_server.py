@@ -79,17 +79,13 @@ def test_dashboard_serves_cached_html(app, client):
 def test_refresh_when_not_running(app, client):
     app.state.last_triage = "2026-08-04T12:00:00+00:00"
     app.state.cycle_lock = threading.Lock()
-    resp = client.post(
-        "/api/refresh", headers={"Authorization": "Bearer test-token"}
-    )
+    resp = client.post("/api/refresh", headers={"Authorization": "Bearer test-token"})
     assert resp.status_code == 202
 
 
 def test_refresh_cooldown(app, client):
     app.state.last_report = "2099-01-01T00:00:00+00:00"
-    resp = client.post(
-        "/api/refresh", headers={"Authorization": "Bearer test-token"}
-    )
+    resp = client.post("/api/refresh", headers={"Authorization": "Bearer test-token"})
     assert resp.status_code == 429
 
 

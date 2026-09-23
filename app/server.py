@@ -89,7 +89,10 @@ def create_app(config: TriageConfig) -> FastAPI:
         }
 
     @app.post("/api/refresh")
-    async def refresh():
+    async def refresh(authorization: str | None = Header(None)):
+        auth_err = _check_auth(config, authorization)
+        if auth_err:
+            return auth_err
         if app.state.last_report:
             last = datetime.fromisoformat(app.state.last_report)
             elapsed = (datetime.now(timezone.utc) - last).total_seconds()
@@ -109,7 +112,10 @@ def create_app(config: TriageConfig) -> FastAPI:
         return JSONResponse({"status": "accepted"}, status_code=202)
 
     @app.post("/api/backfill")
-    async def backfill():
+    async def backfill(authorization: str | None = Header(None)):
+        auth_err = _check_auth(config, authorization)
+        if auth_err:
+            return auth_err
         if not app.state.cycle_lock.acquire(blocking=False):
             return JSONResponse(
                 {"error": "Another cycle is already running"}, status_code=409

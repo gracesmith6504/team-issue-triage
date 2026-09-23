@@ -23,35 +23,7 @@ Built by Grace Smith during a Red Hat internship on the AI Agent Ops team, to he
 
 ## How It Works
 
-```mermaid
-flowchart LR
-    subgraph Triage["Hourly Triage (OpenShell Sandbox CronJob)"]
-        GH["GitHub Issues"] --> SIG["Signal\nExtraction"]
-        SIG --> LLM["LLM\nClassification"]
-        LLM --> CONF["Confidence\nRules"]
-        CONF --> LOG["Assessment\nLog"]
-        CONF --> SLACK["Slack\nAlerts"]
-    end
-
-    subgraph Dashboard["Live Dashboard (Deployment)"]
-        direction TB
-        API["REST API"]
-        CACHE["Section Cache\n(TTL-based)"]
-        UI["Browser UI"]
-        API --- CACHE
-        UI -->|fetch| API
-    end
-
-    LOG -->|POST /api/assessments| API
-
-    subgraph Refresh["Background Refresh"]
-        R_ISS["Issues\n(2h)"]
-        R_PR["PR Health\n(4h)"]
-        R_SYN["Synthesis\n(weekly, Monday)"]
-    end
-
-    CACHE --- Refresh
-```
+![Architecture diagram: the hourly triage worker runs in an OpenShell sandbox and posts results to the dashboard, which stores them and serves the UI and API](docs/architecture.png)
 
 **Triage pipeline** — each new issue gets one LLM call with all team descriptions, a routing table, and calibration examples. Confidence rules label every result (auto, multi-team or uncertain), route middling-confidence matches to no team, and add a low-confidence warning to Slack alerts so the receiving team knows to double-check.
 
@@ -219,30 +191,6 @@ kubectl create secret generic triage-secrets \
 
 # Deploy
 kubectl apply -k k8s/
-```
-
-```mermaid
-flowchart TB
-    subgraph Cluster["Kubernetes"]
-        DEP["Deployment\ntriage-dashboard\n(serves UI + API)"]
-        CJ["CronJob\ntriage-hourly\n(worker mode)"]
-        PVC["PVC\n/data"]
-        CM["ConfigMap\ntriage-config"]
-        SEC["Secret\ntriage-secrets"]
-
-        DEP -->|mounts| PVC
-        CJ -->|POST /api/assessments| DEP
-        CM -.->|env| DEP
-        CM -.->|env| CJ
-        SEC -.->|env| DEP
-        SEC -.->|env| CJ
-    end
-
-    ROUTE["OpenShift Route\nhttps://..."] --> DEP
-    GH["GitHub API"] <--> DEP
-    GH <--> CJ
-    LLM["Vertex AI / Anthropic"] <--> CJ
-    LLM <--> DEP
 ```
 
 The dashboard Deployment serves the UI and API on port 8080. The CronJob runs hourly in worker mode — it triages new issues and POSTs results to the dashboard API (no shared PVC mount needed).

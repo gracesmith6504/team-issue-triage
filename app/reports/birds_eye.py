@@ -190,28 +190,33 @@ class BirdsEyeReportGenerator:
         return critical
 
     def _compute_team_breakdown(self) -> dict[str, TeamSummary]:
-        current_teams: dict[str, list[TriageResult]] = {}
-        for r in self._current:
-            current_teams.setdefault(r.primary_team, []).append(r)
+        source = self._all_results if self._all_results is not None else self._current
+        all_teams: dict[str, list[TriageResult]] = {}
+        for r in source:
+            all_teams.setdefault(r.primary_team, []).append(r)
 
-        previous_teams: dict[str, list[TriageResult]] = {}
+        current_counts: dict[str, int] = {}
+        for r in self._current:
+            current_counts[r.primary_team] = current_counts.get(r.primary_team, 0) + 1
+
+        previous_counts: dict[str, int] = {}
         for r in self._previous:
-            previous_teams.setdefault(r.primary_team, []).append(r)
+            previous_counts[r.primary_team] = previous_counts.get(r.primary_team, 0) + 1
 
         breakdown: dict[str, TeamSummary] = {}
-        for team_id, results in current_teams.items():
+        for team_id, results in all_teams.items():
             by_urgency: dict[str, int] = {}
             for r in results:
                 urgency_str = r.urgency.value
                 by_urgency[urgency_str] = by_urgency.get(urgency_str, 0) + 1
 
-            current_count = len(results)
-            previous_count = len(previous_teams.get(team_id, []))
+            current_count = current_counts.get(team_id, 0)
+            previous_count = previous_counts.get(team_id, 0)
             delta = current_count - previous_count
 
             breakdown[team_id] = TeamSummary(
                 team_id=team_id,
-                total=current_count,
+                total=len(results),
                 by_urgency=by_urgency,
                 new_this_period=current_count,
                 previous_period=previous_count,

@@ -105,6 +105,21 @@ def test_team_breakdown_with_trend():
     assert report.team_breakdown["acp"].trend == "+1"
 
 
+def test_team_breakdown_uses_all_results_when_no_new_issues():
+    gen = BirdsEyeReportGenerator(
+        [],
+        [],
+        _mock_llm(),
+        "claude-sonnet-4-6",
+        "test",
+        all_results=[_make_result(1, team="agent-ops")],
+    )
+    report = gen.generate()
+    assert "agent-ops" in report.team_breakdown
+    assert report.team_breakdown["agent-ops"].total == 1
+    assert report.team_breakdown["agent-ops"].new_this_period == 0
+
+
 def test_area_heatmap():
     current = [
         _make_result(1, title="feat(gateway): test 1"),

@@ -65,6 +65,11 @@ spec:
                     --env="PROFILE_NAME=${PROFILE_NAME}" \
                     --env="DEFAULT_LOOKBACK_HOURS=${DEFAULT_LOOKBACK_HOURS}" \
                     --env="SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}" \
+                    --env="SLACK_WEBHOOK_AGENT_OPS=${SLACK_WEBHOOK_AGENT_OPS:-}" \
+                    --env="SLACK_WEBHOOK_ACP=${SLACK_WEBHOOK_ACP:-}" \
+                    --env="SLACK_WEBHOOK_KATA=${SLACK_WEBHOOK_KATA:-}" \
+                    --env="SLACK_WEBHOOK_AI_SAFETY=${SLACK_WEBHOOK_AI_SAFETY:-}" \
+                    --env="SLACK_WEBHOOK_AGENTDEV=${SLACK_WEBHOOK_AGENTDEV:-}" \
                     -- python3 -m app --mode worker-triage
               env:
                 - name: AGENT_IMAGE
@@ -131,6 +136,36 @@ spec:
                     secretKeyRef:
                       name: triage-sandbox-secrets
                       key: SLACK_WEBHOOK_URL
+                      optional: true
+                - name: SLACK_WEBHOOK_AGENT_OPS
+                  valueFrom:
+                    secretKeyRef:
+                      name: triage-sandbox-secrets
+                      key: SLACK_WEBHOOK_AGENT_OPS
+                      optional: true
+                - name: SLACK_WEBHOOK_ACP
+                  valueFrom:
+                    secretKeyRef:
+                      name: triage-sandbox-secrets
+                      key: SLACK_WEBHOOK_ACP
+                      optional: true
+                - name: SLACK_WEBHOOK_KATA
+                  valueFrom:
+                    secretKeyRef:
+                      name: triage-sandbox-secrets
+                      key: SLACK_WEBHOOK_KATA
+                      optional: true
+                - name: SLACK_WEBHOOK_AI_SAFETY
+                  valueFrom:
+                    secretKeyRef:
+                      name: triage-sandbox-secrets
+                      key: SLACK_WEBHOOK_AI_SAFETY
+                      optional: true
+                - name: SLACK_WEBHOOK_AGENTDEV
+                  valueFrom:
+                    secretKeyRef:
+                      name: triage-sandbox-secrets
+                      key: SLACK_WEBHOOK_AGENTDEV
                       optional: true
               volumeMounts:
                 - name: sandbox-policy

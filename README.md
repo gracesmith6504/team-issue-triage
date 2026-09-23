@@ -363,6 +363,6 @@ make build     # Build container image
 | `WORKER_MODE` | `false` | Set to `true` to disable background scheduler in serve mode (used when the worker CronJob handles triage separately) |
 | `GOOGLE_APPLICATION_CREDENTIALS_JSON` | — | GCP service account key as a JSON string. Use instead of mounting a key file — required when running inside an OpenShell sandbox (can't mount volumes). Writes key to `/tmp/gcp-key.json` on startup. |
 | `REPORT_OUTPUT_PATH` | — | File path for `--mode report --output` — writes HTML or markdown report to this path instead of stdout |
-| `SLACK_WEBHOOK_*` | — | Per-team Slack webhooks (referenced from team YAMLs) |
+| `SLACK_WEBHOOK_*` | — | Per-team Slack webhooks (referenced from team YAMLs). For the sandbox deployment, these must also exist as keys in the `triage-sandbox-secrets` Secret. |
 
 </details>

@@ -46,6 +46,19 @@ def _build_notification_router(repo_config) -> NotificationRouter:
                 k: _resolve_env_vars(v) if isinstance(v, str) else v
                 for k, v in ch.get("config", {}).items()
             }
+            if "webhook_url" in ch_config:
+                url = ch_config["webhook_url"] or ""
+                if not url or re.search(r"\$\{\w+\}", url):
+                    raw = str(ch.get("config", {}).get("webhook_url") or "")
+                    missing = ", ".join(re.findall(r"\$\{(\w+)\}", raw)) or "none"
+                    logger.warning(
+                        "Skipping %s channel for team %s: webhook_url is empty or "
+                        "unresolved (missing environment variable: %s)",
+                        ch["adapter"],
+                        profile.team_id,
+                        missing,
+                    )
+                    continue
             channels.append(
                 ChannelConfig(
                     adapter_type=ch["adapter"],

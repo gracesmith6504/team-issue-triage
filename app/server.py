@@ -141,7 +141,8 @@ def create_app(config: TriageConfig) -> FastAPI:
 
         body = await request.json()
         results = body.get("results", [])
-        if not results:
+        new_last_checked = body.get("last_checked")
+        if not results and not new_last_checked:
             return JSONResponse({"error": "No results provided"}, status_code=400)
 
         from app.core.models import TriageResult
@@ -188,6 +189,8 @@ def create_app(config: TriageConfig) -> FastAPI:
                     r.get("issue_number", "?"),
                 )
 
+        if new_last_checked:
+            state["last_checked"] = new_last_checked
         tracker.save(state)
 
         app.state.issue_count = len(read_results_as_triage(config.assessment_log_path))

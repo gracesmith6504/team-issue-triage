@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime, timezone
 
 import requests
 
@@ -31,10 +32,15 @@ class DashboardClient:
         resp.raise_for_status()
         return resp.json()
 
-    def post_assessments(self, results: list[dict]) -> dict:
+    def post_assessments(
+        self, results: list[dict], last_checked: str | None = None
+    ) -> dict:
+        body = {"results": results}
+        if last_checked:
+            body["last_checked"] = last_checked
         resp = requests.post(
             f"{self.base_url}/api/assessments",
-            json={"results": results},
+            json=body,
             headers=self.headers,
             timeout=60,
         )
@@ -59,6 +65,7 @@ def worker_triage(config: TriageConfig) -> None:
 
     client = DashboardClient(dashboard_url, dashboard_token)
 
+    run_started = datetime.now(timezone.utc).isoformat()
     state = client.get_state()
     seen_keys = {str(key) for key in state["seen_issues"]}
 
@@ -73,29 +80,31 @@ def worker_triage(config: TriageConfig) -> None:
 
     logger.info("Found %d new issues to triage", len(new_issues))
 
-    if not new_issues:
-        return
-
-    repo_config = load_repo_config(
-        config.profile_name, profiles_dir=config.profiles_dir
-    )
-    system_prompt = build_system_prompt(repo_config)
-    router = _build_notification_router(repo_config)
-
-    llm_client = build_llm_client(config)
-    model = resolve_model(config.llm_provider, config.llm_model)
-
     results = []
-    for issue in new_issues:
-        result = triage_issue(issue, llm_client, model, repo_config, system_prompt)
-        if result is None:
-            continue
+    any_failed = False
+    if new_issues:
+        repo_config = load_repo_config(
+            config.profile_name, profiles_dir=config.profiles_dir
+        )
+        system_prompt = build_system_prompt(repo_config)
+        router = _build_notification_router(repo_config)
 
-        router.route(result)
-        results.append(result_to_record(result))
+        llm_client = build_llm_client(config)
+        model = resolve_model(config.llm_provider, config.llm_model)
 
-    if results:
-        resp = client.post_assessments(results)
+        for issue in new_issues:
+            result = triage_issue(issue, llm_client, model, repo_config, system_prompt)
+            if result is None:
+                any_failed = True
+                continue
+
+            router.route(result)
+            results.append(result_to_record(result))
+
+    new_last_checked = None if any_failed else run_started
+
+    if results or new_last_checked:
+        resp = client.post_assessments(results, last_checked=new_last_checked)
         logger.info("Posted %d assessments to dashboard: %s", len(results), resp)
 
 

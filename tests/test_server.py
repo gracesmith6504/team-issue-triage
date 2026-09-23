@@ -158,6 +158,18 @@ def test_post_assessments_saves(app, client):
     assert saved["primary_team"] == "agent-ops"
 
 
+def test_post_assessments_updates_last_checked(client):
+    resp = client.post(
+        "/api/assessments",
+        json={"results": [], "last_checked": "2026-09-23T10:00:00+00:00"},
+        headers={"Authorization": "Bearer test-token"},
+    )
+    assert resp.status_code == 200
+
+    resp = client.get("/api/state", headers={"Authorization": "Bearer test-token"})
+    assert resp.json()["last_checked"] == "2026-09-23T10:00:00+00:00"
+
+
 def test_trigger_report_unauthorized(client):
     resp = client.post("/api/report/trigger")
     assert resp.status_code == 401

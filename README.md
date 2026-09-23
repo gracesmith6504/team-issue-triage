@@ -57,6 +57,9 @@ flowchart LR
 
 **Dashboard** — API-first architecture with independently cached sections. Issues refresh every 2 hours, PR health every 4 hours, LLM synthesis weekly (Monday). If GitHub goes down, the dashboard keeps serving cached data.
 
+<img width="1360" height="637" alt="image" src="https://github.com/user-attachments/assets/73ec0d5b-44dc-4d1c-a520-139c690ec6e1" />
+
+
 ## Schedule
 
 | Component | Trigger | Frequency | Uses LLM? |

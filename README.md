@@ -4,12 +4,12 @@
 
 **AI-powered issue triage agent that classifies, routes, and reports on GitHub issues across multiple teams.**
 
-[![Tests](https://img.shields.io/badge/tests-332%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-337%20passing-brightgreen)]()
 [![Python](https://img.shields.io/badge/python-3.12+-blue)]()
 [![LLM](https://img.shields.io/badge/LLM-Claude%20Sonnet-blueviolet)]()
 [![Deploy](https://img.shields.io/badge/deploy-Kubernetes-326CE5)]()
 
-[Live Demo (OpenShell)](https://triage-dashboard-team-issue-triage.apps.rosa.agent-ops.0lts.p3.openshiftapps.com) ·
+[Live Demo (stale: classification stopped Aug 2026, running pre-fix code)](https://triage-dashboard-team-issue-triage.apps.rosa.agent-ops.0lts.p3.openshiftapps.com) ·
 [API Docs](#api-reference) ·
 [Deploy Your Own](#deploy-to-kubernetes)
 
@@ -17,9 +17,9 @@
 
 ---
 
-Point it at any GitHub repo, define your teams in YAML, and the agent handles the rest: classifies every new issue to the right team, rates urgency, sends Slack alerts for critical items, and serves a live dashboard with cross-team analytics.
+Point it at a GitHub repo and define your teams in YAML (built for NVIDIA/OpenShell; a few parts of the prompt are still OpenShell-specific, see Known limitations). The agent classifies every new issue to the right team, rates urgency, sends Slack alerts for critical items, and serves a live dashboard with cross-team analytics.
 
-Built for [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) by the Red Hat AI Agent Ops team. Designed to work with any repo — bring your own teams, thresholds, and notification channels.
+Built by Grace Smith during a Red Hat internship on the AI Agent Ops team, to help six Red Hat teams keep track of the NVIDIA OpenShell issue tracker.
 
 ## How It Works
 
@@ -53,11 +53,13 @@ flowchart LR
     CACHE --- Refresh
 ```
 
-**Triage pipeline** — each new issue gets one LLM call with all team descriptions, a routing table, and calibration examples. Confidence rules auto-assign high-confidence matches and flag ambiguous ones for human review.
+**Triage pipeline** — each new issue gets one LLM call with all team descriptions, a routing table, and calibration examples. Confidence rules label every result (auto, multi-team or uncertain), route middling-confidence matches to no team, and add a low-confidence warning to Slack alerts so the receiving team knows to double-check.
 
-**Dashboard** — API-first architecture with independently cached sections. Issues refresh every 2 hours, PR health every 4 hours, LLM synthesis weekly (Monday). If GitHub goes down, the dashboard keeps serving cached data.
+**Dashboard** — API-first architecture with independently cached sections. Issues refresh every 2 hours, PR health every 4 hours. The team summaries on the dashboard are calculated directly from the data. The weekly LLM synthesis (Monday) still runs and is available at `/api/v1/report/synthesis`, but isn't displayed, because it was written from one time window and didn't match the dashboard's time filters. If GitHub goes down, the dashboard keeps serving cached data.
 
 <img width="1360" height="637" alt="image" src="https://github.com/user-attachments/assets/73ec0d5b-44dc-4d1c-a520-139c690ec6e1" />
+
+*Screenshot from September 2026. LLM classification stopped in late August when my internship credentials expired; the GitHub-based sections still refresh.*
 
 
 ## Schedule
@@ -69,10 +71,10 @@ flowchart LR
 | PR health refresh | Background thread | Every 4 hours | No — GitHub API only |
 | Vouch tracking refresh | Background thread | Every 4 hours | No — GitHub GraphQL only |
 | Metrics refresh | Background thread | Every hour | No — computed from existing data |
-| AI synthesis | Background thread | Weekly (Monday, 9 UTC) | Yes — 1 call per team + 1 narrative call |
-| Daily digest | Digest CronJob | Daily (configurable) | No — formats existing triage results |
+| AI synthesis (API only, not displayed) | Background thread | Weekly (Monday, 9 UTC) | Yes — 1 call per team + 1 narrative call |
+| Daily digest (optional, not in the default kustomization) | Digest CronJob | Daily (configurable) | No — formats existing triage results |
 
-**Key distinction:** The LLM only runs during triage (classifying new issues) and during weekly synthesis. All other refreshes — issues, PR health, vouch, metrics — are pure GitHub API reads and local computation. The dashboard can serve updated data every 2 hours without any LLM cost.
+**Key distinction:** The LLM only runs during triage (classifying new issues) and during the weekly synthesis, whose output is only available through the API. Everything the dashboard displays, including the team summaries, is calculated directly from the data. All other refreshes — issues, PR health, vouch, metrics — are pure GitHub API reads and local computation. The dashboard can serve updated data every 2 hours without any LLM cost.
 
 
 ## OpenShell Sandbox
@@ -86,7 +88,7 @@ The triage worker (the hourly CronJob) runs inside an [OpenShell](https://github
 | `triage-dashboard` (in-cluster) | POST triage results to the dashboard API |
 | `hooks.slack.com` | Send Slack alerts |
 
-Nothing else — no other internet access, no access to other cluster services. Credentials (GitHub token, API token) are mounted as Kubernetes secrets and never enter the sandbox itself; the LLM key is handled by the gateway.
+Nothing else — no other internet access, no access to other cluster services. The LLM key never enters the sandbox; inference goes through the OpenShell gateway at inference.local. The GitHub token and dashboard API token are passed in as environment variables.
 
 The dashboard deployment runs outside the sandbox as a normal pod — it doesn't need the restriction because it only serves data it already has and refreshes from GitHub on a slow schedule.
 
@@ -95,15 +97,15 @@ The dashboard deployment runs outside the sandbox as a normal pod — it doesn't
 | Feature | Description |
 |---------|-------------|
 | **Multi-team routing** | LLM classifies issues to N teams with confidence scores, multi-team flagging, and uncertainty detection |
-| **Urgency rating** | Critical / high / medium / low with per-team override rules |
-| **Live dashboard** | KPIs, team breakdown, area heatmap, duplicate detection, trend sparklines |
-| **PR health** | Open PR count, age distribution, neglected PRs, merge velocity, review wait times |
+| **Urgency rating** | Critical / high / medium / low |
+| **Live dashboard** | KPIs, team routing, triage queue, PR health and contributor health. Area heatmap and duplicate detection are computed and available via the API and markdown report. |
+| **PR health** | Open PR count, age distribution, neglected PRs, merge velocity |
 | **Vouch tracking** | Pending/completed contributor vouches, blocked PRs, response times |
-| **AI synthesis** | Per-team focus summaries, action items, and executive narrative — generated weekly (Monday) by LLM |
+| **AI synthesis** | Per-team focus summaries, action items and executive narrative, generated weekly (Monday) by LLM. Runs weekly but isn't displayed on the dashboard (see Known limitations) |
 | **Slack notifications** | Immediate alerts for critical/high issues, daily digest for medium/low |
 | **Profile system** | YAML-based team definitions with areas, urgency overrides, few-shot examples, and notification config |
 | **API-first** | All data available via REST API — integrate with Slack bots, CLI tools, CI pipelines, Grafana |
-| **Multi-repo** | Watch multiple GitHub repos from a single deployment |
+| **Multi-repo** | Issue fetching supports multiple repos; the dashboard, PR health and vouch tracking cover a single repo |
 
 ## Quick Start
 
@@ -282,9 +284,13 @@ All data is available via REST API. Read endpoints are unauthenticated (for the 
 | `GET` | `/api/v1/report/meta` | Per-section freshness timestamps |
 | `POST` | `/api/backfill` | Backfill all open issues (one-time) |
 | `POST` | `/api/refresh` | Trigger full section refresh |
+| `POST` | `/api/report/trigger` | Trigger a full refresh (requires token) |
 | `POST` | `/api/assessments` | Submit triage results (used by worker) |
 | `POST` | `/api/reload-config` | Hot-reload team profiles from disk |
+| `GET` | `/api/state` | Seen issues and last-checked time (used by the worker) |
 | `GET` | `/api/health` | Health check |
+
+If API_TOKEN is not set, write endpoints are not protected.
 
 <details>
 <summary><strong>Example: fetch the combined report</strong></summary>
@@ -335,7 +341,7 @@ app/
 └── server.py           # FastAPI app, background scheduler, all API endpoints
 ```
 
-Hexagonal architecture — the core triage engine has zero I/O dependencies. Sources, notifications, and state are pluggable via protocols. Each cache section refreshes independently with its own TTL and failure isolation.
+Hexagonal-style (ports and adapters): issue sources, notifications and the LLM are behind small interfaces, with GitHub, Slack and Anthropic/Vertex adapters plugged in, so the core triage logic is tested with fakes and no network calls. It's not strict: the LLM adapters and YAML loading currently live inside core/. Each dashboard section refreshes independently with its own TTL, so one failing source doesn't take down the others.
 
 ## Cost and Usage
 
@@ -351,10 +357,31 @@ Uses Claude Sonnet (`claude-sonnet-4-6`) via Vertex AI or Anthropic API. All cal
 
 GitHub API usage is mostly from PR health — fetches reviews and comments for each open PR. Linked PR data uses a single GraphQL batch query over all open PRs (no per-issue calls). Stays well within the 5,000 requests/hour rate limit. Dashboard pod idles at ~50MB RAM between refreshes.
 
+## Status
+
+Ran hourly on an internal Red Hat OpenShift (ROSA) cluster during my internship in August 2026. After the internship ended, the LLM credentials expired and classification stopped in late August; the GitHub-based sections kept refreshing. The live demo still runs the code from before my later bug fixes, so some sections (like team routing) appear empty. The dashboard didn't alert anyone that classification had stopped, which is the first thing I'd add (see Known limitations).
+
+## How it was built
+
+I built this during my internship: I researched which Red Hat teams own which parts of OpenShell (Jira components and conversations with team leads), validated the routing rules, and deployed and debugged it on OpenShift. The implementation was written with Claude Code using a spec, plan, implement workflow (the specs and plans are in docs/), and I reviewed, tested and iterated on it.
+
+## Evaluation
+
+The routing rules were checked by hand against 50 real state:triage-needed issues: 46 routed correctly (40 directly from the title prefix or body, 6 where the prefix was misleading but the prompt guidance handled it). The LLM itself was spot-checked on 3 live issues, all routed correctly. There's no automated evaluation yet; the next step would be running the LLM over the 50 labelled issues and reporting accuracy.
+
+## Known limitations
+
+- The prompt is OpenShell-specific: the repo name, some label statistics and three routing examples are hardcoded in app/core/prompt.py. Adding a team is just YAML, but reusing it on another repo needs those moved into config.
+- Confidence labels are stored with each result and shown in Slack alerts, but not on the dashboard.
+- No alert when the hourly job fails: /api/health still reports ok if classification has stopped.
+- The weekly LLM synthesis still runs but isn't displayed, and since a refactor it only receives counts, not issue details. It should be removed or fixed.
+- PR merge velocity only looks at the last 100 closed PRs, and "awaiting review" counts any PR with a requested reviewer, which CODEOWNERS inflates.
+- Per-team urgency_overrides in the YAML are loaded but not yet used in the prompt.
+
 ## Development
 
 ```bash
-make test      # Run all 332 tests
+make test      # Run all 337 tests
 make lint      # Check with ruff (lint + format)
 make format    # Auto-format with ruff
 make build     # Build container image

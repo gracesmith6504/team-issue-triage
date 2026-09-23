@@ -61,12 +61,6 @@ data:
                   method: GET
                   path: /search/**
               - allow:
-                  method: POST
-                  path: /repos/*/*/issues/*/comments
-              - allow:
-                  method: POST
-                  path: /repos/*/*/issues/*/labels
-              - allow:
                   method: GET
                   path: /rate_limit
         binaries:

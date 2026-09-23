@@ -375,7 +375,7 @@ def test_base_template_has_css():
         / "templates"
         / "base.html"
     )
-    content = template_path.read_text()
+    content = template_path.read_text(encoding="utf-8")
     assert "<style>" in content
     assert "--bg-body: #f4f5f7" in content
     assert "--urgency-critical:" in content
@@ -394,7 +394,7 @@ def test_base_template_has_refined_css():
         / "templates"
         / "base.html"
     )
-    content = template_path.read_text()
+    content = template_path.read_text(encoding="utf-8")
     assert '<style id="refined">' in content
     assert "REFINED VISUAL LAYER" in content
     assert "Inter Tight" in content

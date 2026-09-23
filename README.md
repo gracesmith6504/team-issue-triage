@@ -129,7 +129,7 @@ python -m app --mode serve
 Open `http://localhost:8080` to see the dashboard. On first run, backfill existing issues:
 
 ```bash
-curl -X POST http://localhost:8080/api/backfill
+curl -X POST -H "Authorization: Bearer $API_TOKEN" http://localhost:8080/api/backfill
 ```
 
 <details>

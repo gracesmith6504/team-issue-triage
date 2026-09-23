@@ -4,7 +4,7 @@ from app.core.models import TriageResult, Urgency
 from app.notifications.slack_webhook import SlackWebhookAdapter
 
 
-def _make_result(urgency=Urgency.HIGH, secondary_team=None):
+def _make_result(urgency=Urgency.HIGH, secondary_team=None, confidence_flag=None):
     return TriageResult(
         repo="NVIDIA/OpenShell",
         issue_number=2571,
@@ -20,7 +20,7 @@ def _make_result(urgency=Urgency.HIGH, secondary_team=None):
         urgency_reasoning="Regression",
         summary="SPIFFE sandboxes crash on restart",
         recommendation="Investigate SPIFFE lifecycle",
-        confidence_flag=None,
+        confidence_flag=confidence_flag,
         assessed_at="2026-08-01T00:00:00Z",
     )
 
@@ -55,6 +55,33 @@ def test_deliver_immediate_with_secondary(mock_requests):
     payload = mock_requests.post.call_args[1]["json"]
     text = str(payload)
     assert "agent-ops" in text.lower() or "Agent Ops" in text
+
+
+@patch("app.notifications.slack_webhook.requests")
+def test_deliver_immediate_uncertain_flags_low_confidence(mock_requests):
+    adapter = SlackWebhookAdapter()
+    config = {"webhook_url": "https://hooks.slack.com/test"}
+    adapter.deliver_immediate(_make_result(confidence_flag="uncertain"), config)
+    payload = mock_requests.post.call_args[1]["json"]
+    assert "Low confidence" in payload["text"]
+
+
+@patch("app.notifications.slack_webhook.requests")
+def test_deliver_immediate_multi_team_flags_low_confidence(mock_requests):
+    adapter = SlackWebhookAdapter()
+    config = {"webhook_url": "https://hooks.slack.com/test"}
+    adapter.deliver_immediate(_make_result(confidence_flag="multi_team"), config)
+    payload = mock_requests.post.call_args[1]["json"]
+    assert "Low confidence" in payload["text"]
+
+
+@patch("app.notifications.slack_webhook.requests")
+def test_deliver_immediate_auto_has_no_low_confidence(mock_requests):
+    adapter = SlackWebhookAdapter()
+    config = {"webhook_url": "https://hooks.slack.com/test"}
+    adapter.deliver_immediate(_make_result(confidence_flag="auto"), config)
+    payload = mock_requests.post.call_args[1]["json"]
+    assert "Low confidence" not in payload["text"]
 
 
 def test_collect_feedback_returns_empty():

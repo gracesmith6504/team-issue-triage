@@ -22,6 +22,8 @@ class SlackWebhookAdapter:
         )
         if result.secondary_team:
             text += f"\nAlso relevant to: {result.secondary_team}"
+        if result.confidence_flag in ("uncertain", "multi_team"):
+            text += "\n⚠️ Low confidence, please check routing"
         text += f"\n\n#{result.issue_number}: {result.issue_title}"
         text += f"\n\nSummary: {result.summary}"
         text += f"\n\nRecommendation: {result.recommendation}"

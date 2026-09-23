@@ -212,14 +212,9 @@ def test_run_triage_dedup_across_runs(config):
 
         run_triage(config)
 
-        # Verify that seen_numbers (with int 2571) was passed, not the
-        # namespaced string set
         call_args = mock_source.fetch_new_issues.call_args
         seen_arg = call_args[0][2]
-        assert 2571 in seen_arg
-        assert isinstance(seen_arg, set)
-        for item in seen_arg:
-            assert isinstance(item, int)
+        assert "NVIDIA/OpenShell#2571" in seen_arg
 
 
 def test_report_format_auto_detection():

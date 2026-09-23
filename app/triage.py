@@ -76,22 +76,13 @@ def run_triage(config: TriageConfig) -> None:
     llm_client = build_llm_client(config)
     model = resolve_model(config.llm_provider, config.llm_model)
 
-    seen_numbers = set()
-    for key in state["seen_issues"]:
-        key_str = str(key)
-        if "#" in key_str:
-            try:
-                seen_numbers.add(int(key_str.split("#")[1]))
-            except (ValueError, IndexError):
-                pass
-        elif key_str.isdigit():
-            seen_numbers.add(int(key_str))
+    seen_keys = {str(key) for key in state["seen_issues"]}
 
     source = GitHubSource(config.github_token)
     new_issues = source.fetch_new_issues(
         config.watch_repos,
         state["last_checked"],
-        seen_numbers,
+        seen_keys,
     )
 
     logger.info(f"Found {len(new_issues)} new issues")

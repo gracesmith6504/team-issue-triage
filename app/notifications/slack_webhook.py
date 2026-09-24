@@ -26,7 +26,8 @@ class SlackWebhookAdapter:
             text += "\n⚠️ Low confidence, please check routing"
         text += f"\n\n#{result.issue_number}: {result.issue_title}"
         text += f"\n\nSummary: {result.summary}"
-        text += f"\n\nRecommendation: {result.recommendation}"
+        if result.recommendation:
+            text += f"\n\nRecommendation: {result.recommendation}"
         text += f"\n\n\U0001f517 {result.issue_url}"
 
         self._post(channel_config.get("webhook_url", ""), {"text": text})

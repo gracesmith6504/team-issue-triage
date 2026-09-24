@@ -4,7 +4,12 @@ from app.core.models import TriageResult, Urgency
 from app.notifications.slack_webhook import SlackWebhookAdapter
 
 
-def _make_result(urgency=Urgency.HIGH, secondary_team=None, confidence_flag=None):
+def _make_result(
+    urgency=Urgency.HIGH,
+    secondary_team=None,
+    confidence_flag=None,
+    recommendation="Investigate SPIFFE lifecycle",
+):
     return TriageResult(
         repo="NVIDIA/OpenShell",
         issue_number=2571,
@@ -19,7 +24,7 @@ def _make_result(urgency=Urgency.HIGH, secondary_team=None, confidence_flag=None
         urgency=urgency,
         urgency_reasoning="Regression",
         summary="SPIFFE sandboxes crash on restart",
-        recommendation="Investigate SPIFFE lifecycle",
+        recommendation=recommendation,
         confidence_flag=confidence_flag,
         assessed_at="2026-08-01T00:00:00Z",
     )
@@ -82,6 +87,24 @@ def test_deliver_immediate_auto_has_no_low_confidence(mock_requests):
     adapter.deliver_immediate(_make_result(confidence_flag="auto"), config)
     payload = mock_requests.post.call_args[1]["json"]
     assert "Low confidence" not in payload["text"]
+
+
+@patch("app.notifications.slack_webhook.requests")
+def test_deliver_immediate_hides_empty_recommendation(mock_requests):
+    adapter = SlackWebhookAdapter()
+    config = {"webhook_url": "https://hooks.slack.com/test"}
+    adapter.deliver_immediate(_make_result(recommendation=""), config)
+    payload = mock_requests.post.call_args[1]["json"]
+    assert "Recommendation:" not in payload["text"]
+
+
+@patch("app.notifications.slack_webhook.requests")
+def test_deliver_immediate_shows_recommendation(mock_requests):
+    adapter = SlackWebhookAdapter()
+    config = {"webhook_url": "https://hooks.slack.com/test"}
+    adapter.deliver_immediate(_make_result(recommendation="Investigate"), config)
+    payload = mock_requests.post.call_args[1]["json"]
+    assert "Recommendation: Investigate" in payload["text"]
 
 
 def test_collect_feedback_returns_empty():

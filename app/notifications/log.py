@@ -14,7 +14,8 @@ class LogAdapter:
             f"({result.urgency.value}): {result.issue_title}"
         )
         print(f"  Summary: {result.summary}")
-        print(f"  Recommendation: {result.recommendation}")
+        if result.recommendation:
+            print(f"  Recommendation: {result.recommendation}")
         if result.secondary_team:
             print(f"  Also relevant to: {result.secondary_team}")
 

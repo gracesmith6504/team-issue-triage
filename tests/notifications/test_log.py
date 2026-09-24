@@ -2,7 +2,9 @@ from app.core.models import TriageResult, Urgency
 from app.notifications.log import LogAdapter
 
 
-def _make_result(urgency=Urgency.HIGH, primary_team="agent-ops"):
+def _make_result(
+    urgency=Urgency.HIGH, primary_team="agent-ops", recommendation="Investigate"
+):
     return TriageResult(
         repo="NVIDIA/OpenShell",
         issue_number=2571,
@@ -17,7 +19,7 @@ def _make_result(urgency=Urgency.HIGH, primary_team="agent-ops"):
         urgency=urgency,
         urgency_reasoning="Regression",
         summary="SPIFFE sandboxes crash",
-        recommendation="Investigate",
+        recommendation=recommendation,
         confidence_flag=None,
         assessed_at="2026-08-01T00:00:00Z",
     )
@@ -29,6 +31,20 @@ def test_log_adapter_immediate(capsys):
     captured = capsys.readouterr()
     assert "agent-ops" in captured.out
     assert "2571" in captured.out
+
+
+def test_log_adapter_immediate_hides_empty_recommendation(capsys):
+    adapter = LogAdapter()
+    adapter.deliver_immediate(_make_result(recommendation=""), {})
+    captured = capsys.readouterr()
+    assert "Recommendation:" not in captured.out
+
+
+def test_log_adapter_immediate_shows_recommendation(capsys):
+    adapter = LogAdapter()
+    adapter.deliver_immediate(_make_result(recommendation="Investigate"), {})
+    captured = capsys.readouterr()
+    assert "Recommendation: Investigate" in captured.out
 
 
 def test_log_adapter_digest(capsys):

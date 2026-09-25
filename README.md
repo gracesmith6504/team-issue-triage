@@ -69,7 +69,7 @@ The dashboard deployment runs outside the sandbox as a normal pod — it doesn't
 | Feature | Description |
 |---------|-------------|
 | **Multi-team routing** | LLM classifies issues to N teams with confidence scores, multi-team flagging, and uncertainty detection |
-| **Urgency rating** | Critical / high / medium / low |
+| **Urgency rating** | Critical / high / medium / low with per-team urgency rules |
 | **Live dashboard** | KPIs, team routing, triage queue, PR health and contributor health. Area heatmap and duplicate detection are computed and available via the API and markdown report. |
 | **PR health** | Open PR count, age distribution, neglected PRs, merge velocity |
 | **Vouch tracking** | Pending/completed contributor vouches, blocked PRs, response times |
@@ -324,7 +324,6 @@ The routing rules were checked by hand against 50 real state:triage-needed issue
 - No alert when the hourly job fails: /api/health still reports ok if classification has stopped.
 - The weekly LLM synthesis still runs but isn't displayed, and since a refactor it only receives counts, not issue details. It should be removed or fixed.
 - PR merge velocity only looks at the last 100 closed PRs, and "awaiting review" counts any PR with a requested reviewer, which CODEOWNERS inflates.
-- Per-team urgency_overrides in the YAML are loaded but not yet used in the prompt.
 
 ## Development
 

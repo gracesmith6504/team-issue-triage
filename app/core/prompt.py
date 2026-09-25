@@ -15,10 +15,11 @@ def build_system_prompt(repo_config: RepoConfig) -> str:
         _build_teams_section(repo_config.team_profiles),
         _build_routing_signals(repo_config),
         _build_urgency_scale(),
+        _build_team_urgency_rules(repo_config.team_profiles),
         _build_calibration_examples(repo_config),
         _build_output_format(),
     ]
-    return "\n\n".join(sections)
+    return "\n\n".join(s for s in sections if s)
 
 
 def build_user_prompt(issue: IssueData, signals: IssueSignals) -> str:
@@ -149,6 +150,32 @@ def _build_urgency_scale() -> str:
         "  security issue in team-owned area\n"
         "- medium: Reproducible bug with workaround, feature request in owned area\n"
         "- low: RFC, design discussion, feature request outside core scope"
+    )
+
+
+def _build_team_urgency_rules(profiles: list[TeamProfile]) -> str:
+    rules = []
+    for p in profiles:
+        levels = [
+            f"{level} if " + ", ".join(f'"{item}"' for item in items)
+            for level, items in p.urgency_overrides.items()
+            if items
+        ]
+        if levels:
+            rules.append(f"- {p.team_id}: " + "; ".join(levels))
+
+    if not rules:
+        return ""
+
+    return "\n".join(
+        [
+            "## Team-Specific Urgency Rules",
+            "",
+            "If an issue matches a team-specific rule for its primary team, use that",
+            "urgency even if the general scale would suggest lower.",
+            "",
+            *rules,
+        ]
     )
 
 

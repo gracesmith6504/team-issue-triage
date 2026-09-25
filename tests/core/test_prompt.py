@@ -1,7 +1,11 @@
 # tests/core/test_prompt.py
+from pathlib import Path
+
 from app.core.models import IssueData, IssueSignals
-from app.core.profiles import RepoConfig, TeamProfile
+from app.core.profiles import RepoConfig, TeamProfile, load_repo_config
 from app.core.prompt import build_system_prompt, build_user_prompt
+
+PROFILES_DIR = Path(__file__).parent.parent.parent / "profiles"
 
 
 def _make_team(team_id, name, description, primary=None, secondary=None, examples=None):
@@ -107,6 +111,19 @@ def test_system_prompt_contains_urgency_scale():
     assert "high" in prompt.lower()
     assert "medium" in prompt.lower()
     assert "low" in prompt.lower()
+
+
+def test_system_prompt_contains_team_urgency_rules_from_real_profiles():
+    repo_config = load_repo_config("openshell", profiles_dir=PROFILES_DIR)
+    prompt = build_system_prompt(repo_config)
+    assert "Team-Specific Urgency Rules" in prompt
+    assert '"Gateway RBAC bypass"' in prompt
+
+
+def test_system_prompt_omits_team_urgency_rules_without_overrides():
+    config = _make_repo_config()
+    prompt = build_system_prompt(config)
+    assert "Team-Specific Urgency Rules" not in prompt
 
 
 def test_system_prompt_contains_output_format():
